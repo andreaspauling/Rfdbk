@@ -1,8 +1,12 @@
 Package: Rfdbk
-Title: What the Package Does (one line, title case)
-Version: 0.0.0.9000
-Authors@R: person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph)
-Depends: R (>= 3.1.1)
-License: What license is it under?
-LazyData: true
+Type: Package
+Title: Handling NetCDF feedback files
+Version: 1.0.9
+Date: 2015-10-07
+Maintainer: Felix Fundel <felix.fundel@dwd.de>
+Description: Collection of functions to handle NetCDF feedback files from DWD
+    data assimilation. To get examples running make sure the 'examplesRfdbk'
+    directory exists in your home.
+License: GPL
+Depends:
+    RNetCDF,data.table,parallel,stringr,survival,grid,verification,reshape2,pcaPP
