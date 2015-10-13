@@ -1649,26 +1649,8 @@ fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
 		XX = .rbind.data.table(XX,DTFILL)
 		rm(DTFILL)
 	}
-	keep = which(!duplicated(XX[,-obs_ini,with=F]))
+	keep = which(!duplicated(XX[,-"obs_ini",with=F]))
 	DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
 	return(DT)
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
