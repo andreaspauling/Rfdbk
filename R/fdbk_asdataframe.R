@@ -1,13 +1,10 @@
 #' Function to load one or many fdbk Files and transform them to a data.table.
 #' Faster than fdbk_dt_multi and able to handle very large files, however,
 #' be as restrictive as possible, use the cond/columnnames argument select only the data you need for your problem.
-#' Note: Using conditions on veri_data in the cond argument is not possible and may cause an error!!!
-#' Solution: filter veri_data in the returned data.table
 #'
 #' @param fnames      vector of feedback filename(s)
 #' @param cond        list of strings of conditions (all of the list entries are connected with the "&" operator!)
 #' @param columnnames attribute names to keep in the data table
-#' @param cores       use multiple cores for parallel file loading
 #'
 #' @return a data.table of merged feedback file contents
 #'
@@ -19,8 +16,7 @@
 #' condition   = list(obs="!is.na(obs)",
 #'                    level="level%in%c(921)",
 #'                    statid="statid=='METOP-1   '",
-#'                    veri_forecast_time="veri_forecast_time==0",
-#'                    veri_run_type="veri_run_type==3",
+#'                    veri_forecast_time="veri_forecast_time==0"#'                    veri_run_type="veri_run_type==3",
 #'                    veri_ens_member="veri_ens_member==-1")
 #' columnnames = c("obs","veri_data","lon","lat","veri_initial_date")
 #' DT          = fdbk_dt_multi_large(fnames,condition,columnnames,cores=1)
@@ -1149,19 +1145,18 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
         return(keep)
 }
 
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-########################################################################################################################
-
-
 #' Bin a data.table column into user defined bins and replace it with the bin center value.
 #' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
 #' @param  DT data.table
 #' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  mode that will be used to defined the bin. Choices are "bin" or "level". In the first case the limtis of the bins have to be explicitly 
+#' given in two vectors. The name given to the corresponding levels of the bin will be the mean of the lower and upper limit of the bin. In the second case a vector 
+#' specifying the levels has to be given. The limits of the bins will be calculated by taking the mean between neighbouring levels. The two methods differ in the sense that 
+#' the "bin" mode allow to have gaps between the bins, whereas the bins will be continuous in "level" mode. The "level" mode allow to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
 #' @param  binLower number/vector lower bins limits
 #' @param  binUpper number/vector upper bins limits
+#' @param  levels number/vector of levels on which the bins will be defined
 #' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 #
 #' @author Felix <felix.fundel@@dwd.de>
@@ -1188,13 +1183,98 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
-fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
-	bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
-	for (i in 1:length(binLower)){
-		bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
-	}
-        DT[,varToBin] = bins
-	return(DT)
+#' # Do the same for unequally spaced levels using the "level" mode 
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' mainLevels = c(100000,92500,85000,70000,60000,50000,40000,30000)
+#' DT = fdbk_dt_binning(DT,"level",mode="level",levels=mainLevels)
+#' DT$varno    = varno_to_name(DT$varno)
+#' strat       = c("varno","level")
+#' scores      = fdbk_dt_verif_continuous(DT,strat)
+#' setkey(scores,scorename,varno,level)
+#' scores      = scores[!is.na(scores),]
+#' p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
+#'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
+#'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
+#' p
+
+fdbk_dt_binning <- function(DT,varToBin="level", mode = "bin", binLower,binUpper,levels){
+  method <- pmatch(mode, c("bin", "level"))
+  if (is.na(mode)) 
+    stop("invalid binning mode")
+  
+  bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
+  if (mode=="bin"){
+    for (i in 1:length(binLower)){
+      
+      bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
+    }
+  }
+  else {
+    dp = diff(levels)/2
+    binUpper = c(levels[1]-dp[1],levels[1:length(levels)-1]+dp) 
+    binLower = c(levels[1:length(levels)-1]+dp,levels[length(levels)]+dp[length(dp)])
+    
+    for (i in 1:length(binLower)){
+      bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
+    }
+  }
+  
+  DT[,varToBin] = bins
+  return(DT)
+}
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+#' Bin a data.table column into user defined bins and replace it with the bin center value.
+#' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  mode that will be used to defined the bin. Choices are "bin" or "level". In the first case the limtis of the bins have to be explicitly 
+#' given in two vectors. The name given to the corresponding levels of the bin will be the mean of the lower and upper limit of the bin. In the second case a vector 
+#' specifying the levels has to be given. The limits of the bins will be calculated by taking the mean between neighbouring levels. The two methods differ in the sense that 
+#' the "bin" mode allow to have gaps between the bins, whereas the bins will be continuous in "level" mode. The "level" mode allow to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
+#' @param  binLower number/vector lower bins limits
+#' @param  binUpper number/vector upper bins limits
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@meteoswiss.ch>
+
+fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", varUnique = c("veri_initial_date","ident","varno"), interLevels = levels){
+  newDT = c()
+  colnames = colnames(DT)
+  for (i in unique(DT[[varUnique[1]]])){
+    for (j in unique(DT[[varUnique[2]]])){
+      for (k in unique(DT[[varUnique[3]]])){
+        
+        x = log(DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k][[levelToInter]])  # THIS STILL DOES NOT WORK
+        if (length(x) > 2) {
+          #           if (max(x) < log(max(interLevels)) ){
+          #             interLevels = interLevels[2:length(interLevels)]
+          #           }
+          inter = matrix(,nrow=length(interLevels),ncol=length(varToInter))
+          for (l in 1:length(varToInter)){
+            y = DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k][[varToInter[l]]]
+            inter[,l] = approx(x,y,log(interLevels))$y
+          }
+          
+          inter = as.data.frame(inter)
+          colnames(inter) = varToInter
+          DTT = data.frame(inter,DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k,3:dim(DT)[2],with=FALSE][1:length(interLevels),1:(dim(DT)[2]-2),with=FALSE])
+          DTT[[levelToInter]] = interLevels
+          newDT = .rbind.data.table(newDT,DTT)
+          
+        }
+      }
+      
+    }
+    
+  }
+  return(newDT)
 }
 
 
@@ -1649,8 +1729,26 @@ fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
 		XX = .rbind.data.table(XX,DTFILL)
 		rm(DTFILL)
 	}
-	keep = which(!duplicated(XX[,-"obs_ini",with=F]))
+	keep = which(!duplicated(XX[,-obs_ini,with=F]))
 	DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
 	return(DT)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
