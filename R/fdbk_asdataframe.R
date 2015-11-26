@@ -1639,18 +1639,23 @@ fdbk_refdate <- function(filenames){
 fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
 	refDates   = fdbk_refdate(fileNames)
 	fillFiles  = fileNames[refDates%in%unique(DT$veri_initial_date)]
-	iniDates   = refDates[refDates%in%unique(DT$veri_initial_date)]
-	XX = c()
-	for (i in 1:length(fillFiles)){
-		DTFILL = unique(fdbk_dt_multi_large(fillFiles[i], condition = cond, vars = c("obs",vars), cores = 1))
-		setnames(DTFILL,"obs","obs_ini")
-		DTFILL[,veri_initial_date:=as.character(iniDates[i])]
-		DTFILL = DTFILL[ident!=0]
-		XX = .rbind.data.table(XX,DTFILL)
-		rm(DTFILL)
+	if (length(fillFiles)>0){
+		iniDates   = refDates[refDates%in%unique(DT$veri_initial_date)]
+		XX = c()
+		for (i in 1:length(fillFiles)){
+			DTFILL = unique(fdbk_dt_multi_large(fillFiles[i], condition = cond, vars = c("obs",vars), cores = 1))
+			setnames(DTFILL,"obs","obs_ini")
+			DTFILL[,veri_initial_date:=as.character(iniDates[i])]
+			DTFILL = DTFILL[ident!=0]
+			XX = .rbind.data.table(XX,DTFILL)
+			rm(DTFILL)
+		}
+		keep = which(!duplicated(XX[,-"obs_ini",with=F]))
+		DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
+	}else{
+		DT[,obs_ini:=NA]
 	}
-	keep = which(!duplicated(XX[,-"obs_ini",with=F]))
-	DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
 	return(DT)
+
 }
 
