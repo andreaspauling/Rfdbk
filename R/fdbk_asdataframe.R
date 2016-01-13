@@ -2,12 +2,12 @@
 #' Faster than fdbk_dt_multi and able to handle very large files, however,
 #' be as restrictive as possible, use the cond/columnnames argument select only the data you need for your problem.
 #' Note: Using conditions on veri_data in the cond argument is not possible and may cause an error!!!
-#' Solution: filter veri_data in the returned data.table#'
+#' Solution: filter veri_data in the returned data.table
 #'
 #' @param fnames      vector of feedback filename(s)
 #' @param cond        list of strings of conditions (all of the list entries are connected with the "&" operator!)
 #' @param columnnames attribute names to keep in the data table
-#' @param cores       use multiple cores for parallel file 
+#' @param cores       use multiple cores for parallel file loading 
 #'
 #' @return a data.table of merged feedback file contents
 #'
@@ -19,7 +19,8 @@
 #' condition   = list(obs="!is.na(obs)",
 #'                    level="level%in%c(921)",
 #'                    statid="statid=='METOP-1   '",
-#'                    veri_forecast_time="veri_forecast_time==0"#'                    veri_run_type="veri_run_type==3",
+#'                    veri_forecast_time="veri_forecast_time==0"#' 
+#'                    veri_run_type="veri_run_type==3",
 #'                    veri_ens_member="veri_ens_member==-1")
 #' columnnames = c("obs","veri_data","lon","lat","veri_initial_date")
 #' DT          = fdbk_dt_multi_large(fnames,condition,columnnames,cores=1)
@@ -1147,6 +1148,13 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
         DT[,XXLENDUMMYXX:=NULL]
         return(keep)
 }
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 
 #' Bin a data.table column into user defined bins and replace it with the bin center value.
 #' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
