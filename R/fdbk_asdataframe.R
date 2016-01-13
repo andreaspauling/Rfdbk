@@ -1,10 +1,13 @@
 #' Function to load one or many fdbk Files and transform them to a data.table.
 #' Faster than fdbk_dt_multi and able to handle very large files, however,
 #' be as restrictive as possible, use the cond/columnnames argument select only the data you need for your problem.
+#' Note: Using conditions on veri_data in the cond argument is not possible and may cause an error!!!
+#' Solution: filter veri_data in the returned data.table#'
 #'
 #' @param fnames      vector of feedback filename(s)
 #' @param cond        list of strings of conditions (all of the list entries are connected with the "&" operator!)
 #' @param columnnames attribute names to keep in the data table
+#' @param cores       use multiple cores for parallel file 
 #'
 #' @return a data.table of merged feedback file contents
 #'
