@@ -1243,40 +1243,112 @@ fdbk_dt_binning <- function(DT,varToBin="level", mode = "bin", binLower,binUpper
 #' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 #
 #' @author Josue <josue.gehring@@meteoswiss.ch>
+#' 
+#' @example
+#' # Example of linear interpolation based on an international standard atmosphere profile
+#' require(ggplot2)
+#' require(Rfdbk)
+#' require(reshape2)
+#' a1 = -6.5 # K/km standard atmosphere lapse rate, represents observations
+#' a2 = -9 # K/km lapse rate obtained from a fictive model output
+#' b1 = 288.15 # K standard atmosphere surface temperature
+#' b2 = 295 # K surface temperature obtained from a fictive model output
+#' Ho = 8.4 # km scale height
+#' po = 1013.25 # standard atmosphere pressure in hPa
+#' p = seq(250,1000,10) # pressure until the tropopause
+#' T1 = a1*Ho*log(po/p)+b1 # Standard amtmosphere temperature profile
+#' T2 =  a2*Ho*log(po/p)+b2 # Model output temperature profile 
+#' Bias = T2-T1 # Bias = forecast - observation 
+#' 
+#' # Build a data table in feedback files format
+#' obs = T1
+#' veri_data = T2
+#' veri_forecast_time = 24
+#' veri_initial_date = 2015110900
+#' time = -720
+#' lat = 46.812
+#' lon = 6.943
+#' varno = 2
+#' veri_model = "COSMO"
+#' plevel = p
+#' ident = 6610
+#' levels = c(1000, 975, 950, 925, 900, 875, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250) # Levels on which to interpolate
+#' DT = data.frame(obs,veri_data,veri_forecast_time,veri_initial_date,time,lat,lon,varno,veri_model,plevel,ident)
+#' DT           = fdbk_dt_interpolate(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels) # interpolate DT
+#'
+#' data1 = melt(data.frame(T1,p),id="T1") # Data for the standard atmosphere temperature profile
+#' data2 = melt(data.frame(T2=DT$obs,DT$plevel),id="T2") # Interpolation of data1 
+#' 
+#' 
+#' plot = ggplot() + geom_point(data=data1,aes(x=T1,y=value,colour=variable)) + geom_point(data=data2,aes(x=T2,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T [K]") + ylab("pressure [hPa]")+  scale_colour_manual(name="Temperature",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot) # plot of the Standard atmosphere profile and its interpolation 
+#' 
+#' allscores = fdbk_dt_verif_continuous(DT,strat=c("varno","veri_model","plevel") ) # Data table with scores
+#' 
+#' data3 = melt(data.frame(Bias,p),id="Bias") # Bias calculated directly from the standard atmosphere and model output profiles
+#' ME = allscores[allscores$scorename=="ME"]$scores # scores calculated with fdbk_dt_verif_continuous on interpolation levels
+#' ME_levels = allscores[allscores$scorename=="ME"]$plevel # interpolation levels
+#' data4 = melt(data.frame(ME,ME_levels),id="ME")
+#' plot2 = ggplot() + geom_point(data=data3,aes(x=Bias,y=value,colour=variable)) + geom_point(data=data4,aes(x=ME,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T bias [K]") + ylab("pressure [hPa]")+scale_colour_manual(name="Bias",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot2) # plot of the bias calculated directly from the profiles and the bias from the interpolation
 
-fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", varUnique = c("veri_initial_date","ident","varno"), interLevels = levels){
+fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels, varno="varno"){
+  
+  #OneSounding = data.frame(,nrow=1,ncol=dim(DT)[2])
+  ncol = dim(DT)[2]
+  n = dim(DT)[1]
+  OneSounding = as.data.frame(matrix(,nrow=1,ncol)) # vector to store one single sounding at a time and interpolate it
+  Colnames = colnames(DT)
+  colnames(OneSounding) = Colnames
+  OneSounding[1,] = DT[1,] # Store the first row of DT in the first row of OneSounding
   newDT = c()
-  colnames = colnames(DT)
-  for (i in unique(DT[[varUnique[1]]])){
-    for (j in unique(DT[[varUnique[2]]])){
-      for (k in unique(DT[[varUnique[3]]])){
+  k = 1
+  for (i in 2:n){
+    
+    soundingDone = TRUE # Boolean if i correspond to the end of a souding 
+    if (DT$ident[i]==DT$ident[i-1] & DT$veri_forecast_time[i]==DT$veri_forecast_time[i-1] & DT$veri_initial_date[i]==DT$veri_initial_date[i-1] & DT$time[i]==DT$time[i-1]){
+      soundingDone = FALSE # if previous row in DT is the same sounding as the current row, sounding is not done
+      k = k+1
+      OneSounding[k,] = DT[i,] # Store ther current row of DT in the current sounding
+    } 
+    if (soundingDone==TRUE | i==n){ # if the end of a sounding or the end of DT is reached, interpolate the current sounding and store it DTT
+      OneSounding = na.omit(OneSounding)
+      ik = unique(OneSounding[[varno]]) # Vector of all the different variables measured in one sounding 
+      ds3 = as.numeric(OneSounding[[varno]])
+      for (k in ik){
+        kk = ds3 == k 
+        OneVarno = OneSounding[kk,] # Vector of one souding for just one variable
+        x = log(OneVarno[[levelToInter]])  # Take the variable levelToInter
         
-        x = log(DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k][[levelToInter]])  # THIS STILL DOES NOT WORK
-        if (length(x) > 2) {
-          #           if (max(x) < log(max(interLevels)) ){
-          #             interLevels = interLevels[2:length(interLevels)]
-          #           }
-          inter = matrix(,nrow=length(interLevels),ncol=length(varToInter))
-          for (l in 1:length(varToInter)){
-            y = DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k][[varToInter[l]]]
-            inter[,l] = approx(x,y,log(interLevels))$y
+        # interX is the range of interLevels that is contained in the sounding
+        interX = interLevels[log(interLevels)<=max(x) & log(interLevels)>=min(x)]
+        if (length(x) > 2 & length(interX)>2) {
+          inter = matrix(,nrow=length(interX),ncol=length(varToInter))          
+          for (l in 1:length(varToInter)){ # Interpolate for all variables
+            
+            y = OneVarno[[varToInter[l]]] # Take the values to interpolate
+            inter[,l] = approx(x,y,log(interX))$y # Do the Interpolation
           }
           
-          inter = as.data.frame(inter)
-          colnames(inter) = varToInter
-          DTT = data.frame(inter,DT[DT[[varUnique[1]]]==i & DT[[varUnique[2]]]==j & DT[[varUnique[3]]]==k,3:dim(DT)[2],with=FALSE][1:length(interLevels),1:(dim(DT)[2]-2),with=FALSE])
-          DTT[[levelToInter]] = interLevels
-          newDT = .rbind.data.table(newDT,DTT)
           
-        }
+          inter = as.data.frame(inter)
+          
+          colnames(inter) = varToInter # Give the colunames to inter
+          DTT = data.frame(inter,OneVarno[,3:ncol][1:length(interX),1:(ncol-2)])
+          DTT[[levelToInter]] = interX
+          newDT = .rbind.data.table(newDT,DTT) # Bind DTT and newDT
+        }  
       }
-      
+      OneSounding = as.data.frame(matrix(,nrow=200,ncol)) # re-allocate OneSounding for the next sounding 
+      colnames(OneSounding) = Colnames
+      OneSounding[1,] = DT[i,] 
+      k = 1 # Restart the level counter for the next sounding 
     }
-    
   }
   return(newDT)
-}
-
+} 
 
 ########################################################################################################################
 ########################################################################################################################
