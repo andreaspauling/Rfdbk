@@ -7,7 +7,7 @@
 #' @param fnames      vector of feedback filename(s)
 #' @param cond        list of strings of conditions (all of the list entries are connected with the "&" operator!)
 #' @param columnnames attribute names to keep in the data table
-#' @param cores       use multiple cores for parallel file loading 
+#' @param cores       use multiple cores for parallel file loading
 #'
 #' @return a data.table of merged feedback file contents
 #'
@@ -19,7 +19,7 @@
 #' condition   = list(obs="!is.na(obs)",
 #'                    level="level%in%c(921)",
 #'                    statid="statid=='METOP-1   '",
-#'                    veri_forecast_time="veri_forecast_time==0"#' 
+#'                    veri_forecast_time="veri_forecast_time==0",
 #'                    veri_run_type="veri_run_type==3",
 #'                    veri_ens_member="veri_ens_member==-1")
 #' columnnames = c("obs","veri_data","lon","lat","veri_initial_date")
@@ -1111,6 +1111,9 @@ fdbk_dt_reliability_diagram <- function(DT,thresholds="",by="",breaks=""){
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
+
+
+
 #' Find comparable rows in DT for two or more attributes
 #'
 #' @param DT data.table
@@ -1238,12 +1241,12 @@ fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
 fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
-  bins = getVarToBin(DT,varToBin) 
-  for (i in 1:length(binLower)){
-    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
-  }
-  DT[,varToBin] = bins
-  return(DT)
+       bins = getVarToBin(DT,varToBin) 
+       for (i in 1:length(binLower)){
+               bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
+       }
+        DT[,varToBin] = bins
+      return(DT)
 }
 
 ###################
@@ -1840,22 +1843,3 @@ fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
 	return(DT)
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
