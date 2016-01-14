@@ -1111,9 +1111,6 @@ fdbk_dt_reliability_diagram <- function(DT,thresholds="",by="",breaks=""){
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
-
-
-
 #' Find comparable rows in DT for two or more attributes
 #'
 #' @param DT data.table
@@ -1156,18 +1153,64 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 ########################################################################################################################
 
 
+#' Bin a data.table column around user defined levels and replace it with the levels value.
+#' 
+#' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin instead of the bins limits. 
+#' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in the sense that 
+#' fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in fdbk_dt_binning_level. This function allows to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@gmail.com>
+#'
+#' @seealso \code{\link{cut}}
+#'
+#' @examples 
+#' #plot scores accross binned levels
+#' require(ggplot2)
+#' fnames       = "~/examplesRfdbk/icon/temp/verTEMP.2014120112"
+#' cond        = list(obs="!is.na(obs)",varno="varno%in%c(2,3,4,29)")
+#' columnnames = c("obs","veri_data","varno","state","level")
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' levels = c(100000,92500,85000,70000,60000,50000,40000,30000)
+#' DT = fdbk_dt_binning_level(DT,"level",levels)
+#' DT$varno    = varno_to_name(DT$varno)
+#' strat       = c("varno","level")
+#' scores      = fdbk_dt_verif_continuous(DT,strat)
+#' setkey(scores,scorename,varno,level)
+#' scores      = scores[!is.na(scores),]
+#' p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
+#'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
+#'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
+#' p
+fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
+  bins = getVarToBin(DT,varToBin) 
+  dp = diff(levels)/2
+  binUpper = c(levels[1]-dp[1],levels[1:length(levels)-1]+dp) 
+  binLower = c(levels[1:length(levels)-1]+dp,levels[length(levels)]+dp[length(dp)])
+  
+  for (i in 1:length(binLower)){
+    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
+  }
+  DT[,varToBin] = bins
+  return(DT)
+}
+  
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 #' Bin a data.table column into user defined bins and replace it with the bin center value.
 #' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
 #' @param  DT data.table
 #' @param  varToBin variable that should be binned (and will be replaced by the binned version)
-#' @param  mode that will be used to defined the bin. Choices are "bin" or "level". In the first case the limtis of the bins have to be explicitly 
-#' given in two vectors. The name given to the corresponding levels of the bin will be the mean of the lower and upper limit of the bin. In the second case a vector 
-#' specifying the levels has to be given. The limits of the bins will be calculated by taking the mean between neighbouring levels. The two methods differ in the sense that 
-#' the "bin" mode allow to have gaps between the bins, whereas the bins will be continuous in "level" mode. The "level" mode allow to have non-equally spaced 
-#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
 #' @param  binLower number/vector lower bins limits
 #' @param  binUpper number/vector upper bins limits
-#' @param  levels number/vector of levels on which the bins will be defined
 #' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 #
 #' @author Felix <felix.fundel@@dwd.de>
@@ -1194,45 +1237,21 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
-#' # Do the same for unequally spaced levels using the "level" mode 
-#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
-#' mainLevels = c(100000,92500,85000,70000,60000,50000,40000,30000)
-#' DT = fdbk_dt_binning(DT,"level",mode="level",levels=mainLevels)
-#' DT$varno    = varno_to_name(DT$varno)
-#' strat       = c("varno","level")
-#' scores      = fdbk_dt_verif_continuous(DT,strat)
-#' setkey(scores,scorename,varno,level)
-#' scores      = scores[!is.na(scores),]
-#' p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
-#'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
-#'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
-#' p
-
-fdbk_dt_binning <- function(DT,varToBin="level", mode = "bin", binLower,binUpper,levels){
-  method <- pmatch(mode, c("bin", "level"))
-  if (is.na(mode)) 
-    stop("invalid binning mode")
-  
-  bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
-  if (mode=="bin"){
-    for (i in 1:length(binLower)){
-      
-      bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
-    }
+fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
+  bins = getVarToBin(DT,varToBin) 
+  for (i in 1:length(binLower)){
+    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
   }
-  else {
-    dp = diff(levels)/2
-    binUpper = c(levels[1]-dp[1],levels[1:length(levels)-1]+dp) 
-    binLower = c(levels[1:length(levels)-1]+dp,levels[length(levels)]+dp[length(dp)])
-    
-    for (i in 1:length(binLower)){
-      bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
-    }
-  }
-  
   DT[,varToBin] = bins
   return(DT)
 }
+
+###################
+getVarToBin <- function(DT,varToBin) {
+  bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
+  return(bins)
+}
+
 
 ########################################################################################################################
 ########################################################################################################################
