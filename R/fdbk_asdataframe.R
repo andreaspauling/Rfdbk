@@ -75,13 +75,13 @@
 #' scores     = fdbk_dt_verif_continuous(DT,c("level","statid")) 
 #' ggplot(scores,aes(x=level,y=scores,color=statid,group=statid))+geom_line()+geom_point()+facet_wrap(~scorename,scale="free")
 fdbk_dt_multi_large <- function(fnames,condition="",vars="",cores=1){
-	loadt <- function(fname,condition,vars){
-		DT  = fdbk_dt(read_fdbk_large(fname,condition,vars=unique(c(vars,"i_body","l_body",names(condition)))))
-		if (all(vars!="")) DT  = DT[,vars,with=F]
-		print(paste("completed reading",fname))
-		return(DT)
-	}
-	return(do.call(.rbind.data.table,mclapply(fnames,loadt,condition,vars,mc.cores = cores)))
+  loadt <- function(fname,condition,vars){
+    DT  = fdbk_dt(read_fdbk_large(fname,condition,vars=unique(c(vars,"i_body","l_body",names(condition)))))
+    if (all(vars!="")) DT  = DT[,vars,with=F]
+    print(paste("completed reading",fname))
+    return(DT)
+  }
+  return(do.call(.rbind.data.table,mclapply(fnames,loadt,condition,vars,mc.cores = cores)))
 }
 
 ########################################################################################################################
@@ -113,142 +113,142 @@ fdbk_dt_multi_large <- function(fnames,condition="",vars="",cores=1){
 #' x11(width=12,height=7.5)
 #' scatterplot(fdbk$DATA$lon$values,fdbk$DATA$lat$values,fdbk$DATA$obs$values,pch=20,cex=.5,cpal=tim.colors(),ncol=30);world(add=T)
 read_fdbk_large <- function(fname,condition="",vars=""){
-
-	# read feedback file as list (entire file without redundancy)
-	if (any(vars=="")){
-		fdbk = read_fdbk_f(fname,vars="")
-        }else{	
-		fdbk = read_fdbk_f(fname,vars=unique(c(vars,"i_body","l_body",names(condition))))
-	}
-
-	# if no filter is set return file as is
-        if (condition[1]==""){return(fdbk)}
-
-	# if any NA in hdr remove them as well
-        if (any(is.na(fdbk$DATA$i_body$values))){
-		condition = append(condition,list(i_body="!is.na(i_body)"))
-		condition = condition[!duplicated(condition)]
-	}
-
-	#  dimensions
-	d_veri     = fdbk$DIMENSIONS$d_veri$length
-	d_hdr      = fdbk$DIMENSIONS$d_hdr$length
-	d_body     = fdbk$DIMENSIONS$d_body$length
-	dimensions = lapply(lapply(fdbk$DATA,"[[","values"),dim)
-
-        
-	# variable names for each type of date
-	names_body  = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),"[",1))==fdbk$DIMENSIONS$d_body$id))
-	names_hdr   = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),last))==fdbk$DIMENSIONS$d_hdr$id))
-	names_veri  = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),last))==fdbk$DIMENSIONS$d_veri$id))
-        names_body  = names_body[!names_body%in%names_veri]
-
-	type_table = data.table(NULL)
-	if (length(names_body)>0){ type_table = rbind(type_table,data.table(names=names_body,type="body"))}
-	if (length(names_hdr)>0){  type_table = rbind(type_table,data.table(names=names_hdr,type="hdr"))}
-	if (length(names_veri)>0){ type_table = rbind(type_table,data.table(names=names_veri,type="veri"))}
-
-	# filter types that have to be applied
-	filter_type = type_table[match(names(condition),type_table$names),type]
-
-
-	# "VERI" FILTER
-	if (any(filter_type=="veri")){
-	  filt_cond  = paste(unlist(lapply(condition[which(filter_type=="veri")],"[")),collapse=" & ")
-	  filt_var   = names(lapply(condition[which(filter_type=="veri")],"["))
-	  for (f in unique(filt_var)){
-	    eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
-	  }
-	  filt = eval(parse(text=filt_cond))  # filter condition
-          if (all(!filt)){
-            warning(paste(filt_cond,"has no match, returning NULL"))
-            return(NULL)
-          }
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_veri)))){
-	    fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
-	  }
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",2),"==",d_veri)))){
-	    fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
-	  }
-	  fdbk$DIMENSIONS$d_veri$length = sum(filt) # correct fdbk$DIMENSIONS entry
-	} 
-     
-	# "REPORT" FILTER
-	if (any(filter_type=="hdr")){
-	  filt_cond  = paste(unlist(lapply(condition[which(filter_type=="hdr")],"[")),collapse=" & ")
-	  filt_var   = names(lapply(condition[which(filter_type=="hdr")],"["))
-	  for (f in filt_var){
-	    eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
-	  }
-	  filt = which(eval(parse(text=filt_cond)))
-          if (length(filt)==0){
-            warning(paste(filt_cond,"has no match, returning NULL"))
-            return(NULL)
-          }
-	  # filter body length variables
-	  indices = do.call("c",mapply(seq,fdbk$DATA$i_body$values[filt],fdbk$DATA$i_body$values[filt]+fdbk$DATA$l_body$values[filt]-1,SIMPLIFY = F))
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_body)))){
-	    if (length(dim(fdbk$DATA[[i]]$values))==2){
-	      fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[indices,],ncol=dim(fdbk$DATA[[i]]$values)[2])
-	    }else{
-	      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[indices]
-	    }
-	  }
-	  # filter report length variables
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_hdr)))){
-	    fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt]
-	  }
-	  fdbk$DIMENSIONS$d_hdr$length = length(filt) # correct fdbk$DIMENSIONS entry
-          fdbk$DIMENSIONS$d_body$length  = length(fdbk$DATA$obs$values)
-	  fdbk$DATA$i_body$values      = cumsum(c(1,fdbk$DATA$l_body$values))[-(length(fdbk$DATA$l_body$values)+1)] # correct fdbk$DATA$i_body entries
-	}
- 
-
-
-	# "BODY" FILTER
-	if (any(filter_type=="body")){
-	  filt_cond  = paste(unlist(lapply(condition[which(filter_type=="body")],"[")),collapse=" & ")
-	  filt_var   = names(lapply(condition[which(filter_type=="body")],"["))
-	  indices    = rep(seq(1,length(fdbk$DATA$i_body$values)),fdbk$DATA$l_body$values)
-	  for (f in filt_var){
-	    eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
-	  }
-	  filt = which(eval(parse(text=filt_cond)))
-          if (length(filt)==0){
-            warning(paste(filt_cond,"has no match, returning NULL"))
-            return(NULL)
-          }
-	  # filter body length variables
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_body)))){
-	    if (length(dim(fdbk$DATA[[i]]$values))==2){
-	      fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[filt,],ncol=dim(fdbk$DATA[[i]]$values)[2])
-	    }else{
-	      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt]
-	    }
-	  }
-	  # filter report where new_l_body==0
-          filt_hdr = !unique(indices)%in%unique(indices[filt])
-	  for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_hdr)))){
-	    fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[!filt_hdr]
-	  }
-	  # delet rows new_l_body==0
-	  fdbk$DATA$l_body$values = as.integer(table(indices[filt]))
-	  fdbk$DATA$i_body$values = cumsum(c(1,fdbk$DATA$l_body$values))[-(length(fdbk$DATA$l_body$values)+1)]
-	  fdbk$DIMENSIONS$d_hdr$length  = length(fdbk$DATA$l_body$values)
-	  fdbk$DIMENSIONS$d_body$length  = length(fdbk$DATA$obs$values)
-	}
-
-	# change global information
-	fdbk$GLOBALS$n_body = fdbk$DIMENSIONS$d_body$length
-	fdbk$GLOBALS$n_hdr  = fdbk$DIMENSIONS$d_hdr$length
-
-	# delete variables that are not wanted
-	if (any(vars!="")){
-		fdbk$DATA = fdbk$DATA[names(fdbk$DATA)[match(unique(c(vars,"i_body","l_body")),names(fdbk$DATA))]]
-	}
-
-	return(fdbk)
-
+  
+  # read feedback file as list (entire file without redundancy)
+  if (any(vars=="")){
+    fdbk = read_fdbk_f(fname,vars="")
+  }else{  
+    fdbk = read_fdbk_f(fname,vars=unique(c(vars,"i_body","l_body",names(condition))))
+  }
+  
+  # if no filter is set return file as is
+  if (condition[1]==""){return(fdbk)}
+  
+  # if any NA in hdr remove them as well
+  if (any(is.na(fdbk$DATA$i_body$values))){
+    condition = append(condition,list(i_body="!is.na(i_body)"))
+    condition = condition[!duplicated(condition)]
+  }
+  
+  #  dimensions
+  d_veri     = fdbk$DIMENSIONS$d_veri$length
+  d_hdr      = fdbk$DIMENSIONS$d_hdr$length
+  d_body     = fdbk$DIMENSIONS$d_body$length
+  dimensions = lapply(lapply(fdbk$DATA,"[[","values"),dim)
+  
+  
+  # variable names for each type of date
+  names_body  = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),"[",1))==fdbk$DIMENSIONS$d_body$id))
+  names_hdr   = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),last))==fdbk$DIMENSIONS$d_hdr$id))
+  names_veri  = names(which(unlist(lapply(lapply(fdbk$DATA,"[[","dimids"),last))==fdbk$DIMENSIONS$d_veri$id))
+  names_body  = names_body[!names_body%in%names_veri]
+  
+  type_table = data.table(NULL)
+  if (length(names_body)>0){ type_table = rbind(type_table,data.table(names=names_body,type="body"))}
+  if (length(names_hdr)>0){  type_table = rbind(type_table,data.table(names=names_hdr,type="hdr"))}
+  if (length(names_veri)>0){ type_table = rbind(type_table,data.table(names=names_veri,type="veri"))}
+  
+  # filter types that have to be applied
+  filter_type = type_table[match(names(condition),type_table$names),type]
+  
+  
+  # "VERI" FILTER
+  if (any(filter_type=="veri")){
+    filt_cond  = paste(unlist(lapply(condition[which(filter_type=="veri")],"[")),collapse=" & ")
+    filt_var   = names(lapply(condition[which(filter_type=="veri")],"["))
+    for (f in unique(filt_var)){
+      eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
+    }
+    filt = eval(parse(text=filt_cond))  # filter condition
+    if (all(!filt)){
+      warning(paste(filt_cond,"has no match, returning NULL"))
+      return(NULL)
+    }
+    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_veri)))){
+      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
+    }
+    for (i in which(unlist(lapply(lapply(dimensions,"[",2),"==",d_veri)))){
+      fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
+    }
+    fdbk$DIMENSIONS$d_veri$length = sum(filt) # correct fdbk$DIMENSIONS entry
+  } 
+  
+  # "REPORT" FILTER
+  if (any(filter_type=="hdr")){
+    filt_cond  = paste(unlist(lapply(condition[which(filter_type=="hdr")],"[")),collapse=" & ")
+    filt_var   = names(lapply(condition[which(filter_type=="hdr")],"["))
+    for (f in filt_var){
+      eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
+    }
+    filt = which(eval(parse(text=filt_cond)))
+    if (length(filt)==0){
+      warning(paste(filt_cond,"has no match, returning NULL"))
+      return(NULL)
+    }
+    # filter body length variables
+    indices = do.call("c",mapply(seq,fdbk$DATA$i_body$values[filt],fdbk$DATA$i_body$values[filt]+fdbk$DATA$l_body$values[filt]-1,SIMPLIFY = F))
+    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_body)))){
+      if (length(dim(fdbk$DATA[[i]]$values))==2){
+        fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[indices,],ncol=dim(fdbk$DATA[[i]]$values)[2])
+      }else{
+        fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[indices]
+      }
+    }
+    # filter report length variables
+    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_hdr)))){
+      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt]
+    }
+    fdbk$DIMENSIONS$d_hdr$length = length(filt) # correct fdbk$DIMENSIONS entry
+    fdbk$DIMENSIONS$d_body$length  = length(fdbk$DATA$obs$values)
+    fdbk$DATA$i_body$values      = cumsum(c(1,fdbk$DATA$l_body$values))[-(length(fdbk$DATA$l_body$values)+1)] # correct fdbk$DATA$i_body entries
+  }
+  
+  
+  
+  # "BODY" FILTER
+  if (any(filter_type=="body")){
+    filt_cond  = paste(unlist(lapply(condition[which(filter_type=="body")],"[")),collapse=" & ")
+    filt_var   = names(lapply(condition[which(filter_type=="body")],"["))
+    indices    = rep(seq(1,length(fdbk$DATA$i_body$values)),fdbk$DATA$l_body$values)
+    for (f in filt_var){
+      eval(parse(text=paste0(f,"=fdbk$DATA[[f]]$values"))) # assign values to variable
+    }
+    filt = which(eval(parse(text=filt_cond)))
+    if (length(filt)==0){
+      warning(paste(filt_cond,"has no match, returning NULL"))
+      return(NULL)
+    }
+    # filter body length variables
+    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_body)))){
+      if (length(dim(fdbk$DATA[[i]]$values))==2){
+        fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[filt,],ncol=dim(fdbk$DATA[[i]]$values)[2])
+      }else{
+        fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt]
+      }
+    }
+    # filter report where new_l_body==0
+    filt_hdr = !unique(indices)%in%unique(indices[filt])
+    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_hdr)))){
+      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[!filt_hdr]
+    }
+    # delet rows new_l_body==0
+    fdbk$DATA$l_body$values = as.integer(table(indices[filt]))
+    fdbk$DATA$i_body$values = cumsum(c(1,fdbk$DATA$l_body$values))[-(length(fdbk$DATA$l_body$values)+1)]
+    fdbk$DIMENSIONS$d_hdr$length  = length(fdbk$DATA$l_body$values)
+    fdbk$DIMENSIONS$d_body$length  = length(fdbk$DATA$obs$values)
+  }
+  
+  # change global information
+  fdbk$GLOBALS$n_body = fdbk$DIMENSIONS$d_body$length
+  fdbk$GLOBALS$n_hdr  = fdbk$DIMENSIONS$d_hdr$length
+  
+  # delete variables that are not wanted
+  if (any(vars!="")){
+    fdbk$DATA = fdbk$DATA[names(fdbk$DATA)[match(unique(c(vars,"i_body","l_body")),names(fdbk$DATA))]]
+  }
+  
+  return(fdbk)
+  
 }
 
 ########################################################################################################################
@@ -272,33 +272,33 @@ read_fdbk_large <- function(fname,condition="",vars=""){
 #' format(object.size(DT),"Mb")
 #' DT
 fdbk_dt <- function(fdbk){
-        if (is.null(fdbk)){return(NULL)}
-	data_len     = fdbk$DIMENSIONS$d_body$length
-	veri_steps   = fdbk$DIMENSIONS$d_veri$length
-	stat_len     = fdbk$DIMENSIONS$d_hdr$length
-	var_lengths  = lapply(lapply(fdbk$DATA,"[[","values"),length)
-
-	data_names        = names(var_lengths)
-	obs_id            = as.vector(which(unlist(lapply(var_lengths,"==", data_len))))
-	obs_names         = data_names[obs_id]
-	veri_id           = as.vector(which(unlist(lapply(var_lengths,"==", veri_steps))))
-	veri_names        = data_names[veri_id]
-	stat_id           = as.vector(which(unlist(lapply(var_lengths,"==", stat_len))))
-	stat_names        = data_names[stat_id]
-
-	dlist        = list()
-	for (n in obs_names){dlist[[n]]   = rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_body],veri_steps)}
-	for (n in veri_names){dlist[[n]]  = rep(fdbk$DATA[[n]]$values,each = fdbk$GLOBALS$n_body)}
-	for (n in stat_names){ dlist[[n]] = rep(rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_hdr],fdbk$DATA$l_body$values[1:fdbk$GLOBALS$n_hdr]),veri_steps) }
-	#dlist[["verification_ref_time"]]  = rep(fdbk$GLOBALS$verification_ref_time,fdbk$GLOBALS$n_body)
-	if (veri_steps>1 & fdbk$GLOBALS$n_body>1){ 
-		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body,])
-	}else if (veri_steps==1 & fdbk$GLOBALS$n_body>1){
-		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body])
-	}else if (veri_steps>0 & fdbk$GLOBALS$n_body==1){
-		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values)
-	}
-	return(as.data.table(dlist))
+  if (is.null(fdbk)){return(NULL)}
+  data_len     = fdbk$DIMENSIONS$d_body$length
+  veri_steps   = fdbk$DIMENSIONS$d_veri$length
+  stat_len     = fdbk$DIMENSIONS$d_hdr$length
+  var_lengths  = lapply(lapply(fdbk$DATA,"[[","values"),length)
+  
+  data_names        = names(var_lengths)
+  obs_id            = as.vector(which(unlist(lapply(var_lengths,"==", data_len))))
+  obs_names         = data_names[obs_id]
+  veri_id           = as.vector(which(unlist(lapply(var_lengths,"==", veri_steps))))
+  veri_names        = data_names[veri_id]
+  stat_id           = as.vector(which(unlist(lapply(var_lengths,"==", stat_len))))
+  stat_names        = data_names[stat_id]
+  
+  dlist        = list()
+  for (n in obs_names){dlist[[n]]   = rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_body],veri_steps)}
+  for (n in veri_names){dlist[[n]]  = rep(fdbk$DATA[[n]]$values,each = fdbk$GLOBALS$n_body)}
+  for (n in stat_names){ dlist[[n]] = rep(rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_hdr],fdbk$DATA$l_body$values[1:fdbk$GLOBALS$n_hdr]),veri_steps) }
+  #dlist[["verification_ref_time"]]  = rep(fdbk$GLOBALS$verification_ref_time,fdbk$GLOBALS$n_body)
+  if (veri_steps>1 & fdbk$GLOBALS$n_body>1){ 
+    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body,])
+  }else if (veri_steps==1 & fdbk$GLOBALS$n_body>1){
+    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body])
+  }else if (veri_steps>0 & fdbk$GLOBALS$n_body==1){
+    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values)
+  }
+  return(as.data.table(dlist))
 }
 
 ########################################################################################################################
@@ -317,30 +317,30 @@ fdbk_dt <- function(fdbk){
 #' fdbk = read_fdbk("~/examplesRfdbk/icon/synop/verSYNOP.2014120112")
 #' str(fdbk)
 read_fdbk <- function(filename){
-	f              = open.nc(filename)
-	n_global_attr  = file.inq.nc(f)$ngatts
-	g_names        = c(); for (i in 0:(n_global_attr-1)) g_names=c(g_names,att.inq.nc(f,"NC_GLOBAL",i)$name)
-	GLOBALS        = list(); for (i in 0:(n_global_attr-1)) GLOBALS[[i+1]] = att.get.nc(f,"NC_GLOBAL",i)
-	names(GLOBALS) = g_names
-
-	DATA     = list()
-	for (i in 0:(file.inq.nc(f)$nvars-1)){
-		DATA[[i+1]]           = var.inq.nc(f,i)
-		for (j in 0:(DATA[[i+1]]$natts-1)){
-			attname = att.inq.nc(f, DATA[[i+1]]$name, j)$name
-			eval(parse(text=paste("DATA[[i+1]]$`",attname,"`  = att.get.nc(f,DATA[[i+1]]$name,'",attname,"')",sep="")))
-		}
-		DATA[[i+1]]$values    = var.get.nc(f,DATA[[i+1]]$name)
-	}
-
-	short       = do.call("rbind", lapply(DATA, "[[", 2))
-	names(DATA) = short
-
-	DIMENSIONS = list(); for (i in 0:(file.inq.nc(f)$ndims-1)){ DIMENSIONS[[i+1]] = dim.inq.nc(f,i) }
-	names(DIMENSIONS) = lapply(DIMENSIONS,"[[","name")
-
-	close.nc(f)
-	return(list(DIMENSIONS=DIMENSIONS,GLOBALS=GLOBALS,DATA=DATA))
+  f              = open.nc(filename)
+  n_global_attr  = file.inq.nc(f)$ngatts
+  g_names        = c(); for (i in 0:(n_global_attr-1)) g_names=c(g_names,att.inq.nc(f,"NC_GLOBAL",i)$name)
+  GLOBALS        = list(); for (i in 0:(n_global_attr-1)) GLOBALS[[i+1]] = att.get.nc(f,"NC_GLOBAL",i)
+  names(GLOBALS) = g_names
+  
+  DATA     = list()
+  for (i in 0:(file.inq.nc(f)$nvars-1)){
+    DATA[[i+1]]           = var.inq.nc(f,i)
+    for (j in 0:(DATA[[i+1]]$natts-1)){
+      attname = att.inq.nc(f, DATA[[i+1]]$name, j)$name
+      eval(parse(text=paste("DATA[[i+1]]$`",attname,"`  = att.get.nc(f,DATA[[i+1]]$name,'",attname,"')",sep="")))
+    }
+    DATA[[i+1]]$values    = var.get.nc(f,DATA[[i+1]]$name)
+  }
+  
+  short       = do.call("rbind", lapply(DATA, "[[", 2))
+  names(DATA) = short
+  
+  DIMENSIONS = list(); for (i in 0:(file.inq.nc(f)$ndims-1)){ DIMENSIONS[[i+1]] = dim.inq.nc(f,i) }
+  names(DIMENSIONS) = lapply(DIMENSIONS,"[[","name")
+  
+  close.nc(f)
+  return(list(DIMENSIONS=DIMENSIONS,GLOBALS=GLOBALS,DATA=DATA))
 }
 
 ########################################################################################################################
@@ -361,35 +361,35 @@ read_fdbk <- function(filename){
 #' fdbk = read_fdbk_f("~/examplesRfdbk/icon/synop/verSYNOP.2014120112",c("obs","veri_data"))
 #' str(fdbk)
 read_fdbk_f <- function(filename,vars=""){
-	f              = open.nc(filename)
-	n_global_attr  = file.inq.nc(f)$ngatts
-	g_names        = c(); for (i in 0:(n_global_attr-1)) g_names=c(g_names,att.inq.nc(f,"NC_GLOBAL",i)$name)
-	GLOBALS        = list(); for (i in 0:(n_global_attr-1)) GLOBALS[[i+1]] = att.get.nc(f,"NC_GLOBAL",i)
-	names(GLOBALS) = g_names
-
-	DATA     = list()
-	for (i in 0:(file.inq.nc(f)$nvars-1)){
-		DATA[[i+1]]           = var.inq.nc(f,i)
-                if (DATA[[i+1]]$name%in%vars | all(vars=="")){
-			for (j in 0:(DATA[[i+1]]$natts-1)){
-				attname = att.inq.nc(f, DATA[[i+1]]$name, j)$name
-				eval(parse(text=paste("DATA[[i+1]]$`",attname,"`  = att.get.nc(f,DATA[[i+1]]$name,'",attname,"')",sep="")))
-			}
-			DATA[[i+1]]$values    = var.get.nc(f,DATA[[i+1]]$name)
-		}
-	}
-
-	short       = do.call("rbind", lapply(DATA, "[[", 2))
-	names(DATA) = short
-        if (any(vars!="")){
-        	DATA = DATA[short[match(vars,short)]]
-	}
-
-	DIMENSIONS = list(); for (i in 0:(file.inq.nc(f)$ndims-1)){ DIMENSIONS[[i+1]] = dim.inq.nc(f,i) }
-	names(DIMENSIONS) = lapply(DIMENSIONS,"[[","name")
-
-	close.nc(f)
-	return(list(DIMENSIONS=DIMENSIONS,GLOBALS=GLOBALS,DATA=DATA))
+  f              = open.nc(filename)
+  n_global_attr  = file.inq.nc(f)$ngatts
+  g_names        = c(); for (i in 0:(n_global_attr-1)) g_names=c(g_names,att.inq.nc(f,"NC_GLOBAL",i)$name)
+  GLOBALS        = list(); for (i in 0:(n_global_attr-1)) GLOBALS[[i+1]] = att.get.nc(f,"NC_GLOBAL",i)
+  names(GLOBALS) = g_names
+  
+  DATA     = list()
+  for (i in 0:(file.inq.nc(f)$nvars-1)){
+    DATA[[i+1]]           = var.inq.nc(f,i)
+    if (DATA[[i+1]]$name%in%vars | all(vars=="")){
+      for (j in 0:(DATA[[i+1]]$natts-1)){
+        attname = att.inq.nc(f, DATA[[i+1]]$name, j)$name
+        eval(parse(text=paste("DATA[[i+1]]$`",attname,"`  = att.get.nc(f,DATA[[i+1]]$name,'",attname,"')",sep="")))
+      }
+      DATA[[i+1]]$values    = var.get.nc(f,DATA[[i+1]]$name)
+    }
+  }
+  
+  short       = do.call("rbind", lapply(DATA, "[[", 2))
+  names(DATA) = short
+  if (any(vars!="")){
+    DATA = DATA[short[match(vars,short)]]
+  }
+  
+  DIMENSIONS = list(); for (i in 0:(file.inq.nc(f)$ndims-1)){ DIMENSIONS[[i+1]] = dim.inq.nc(f,i) }
+  names(DIMENSIONS) = lapply(DIMENSIONS,"[[","name")
+  
+  close.nc(f)
+  return(list(DIMENSIONS=DIMENSIONS,GLOBALS=GLOBALS,DATA=DATA))
 }
 
 
@@ -418,15 +418,15 @@ read_fdbk_f <- function(filename,vars=""){
 #' DT          = fdbk_dt_multi(fnames,cond,columnnames,4)
 #' DT
 fdbk_dt_multi <- function(fnames,cond="",columnnames="",cores=1){
-	print("INFO: Function is deprecated! Use fdbk_dt_multi_large for large files and better performance")
-	loadt <- function(fname,cond,columnnames){
-		DT  = fdbk_dt(read_fdbk(fname))
-		if (cond!="")             DT  = droplevels(eval(parse(text=paste("DT[",cond,",,]",sep=""))))
-		if (all(columnnames!="")) DT  = DT[,columnnames,with=F]
-		print(paste("completed reading",fname))
-		return(DT)
-	}
-	return(do.call(.rbind.data.table,mclapply(fnames,loadt,cond,columnnames,mc.cores = cores)))
+  print("INFO: Function is deprecated! Use fdbk_dt_multi_large for large files and better performance")
+  loadt <- function(fname,cond,columnnames){
+    DT  = fdbk_dt(read_fdbk(fname))
+    if (cond!="")             DT  = droplevels(eval(parse(text=paste("DT[",cond,",,]",sep=""))))
+    if (all(columnnames!="")) DT  = DT[,columnnames,with=F]
+    print(paste("completed reading",fname))
+    return(DT)
+  }
+  return(do.call(.rbind.data.table,mclapply(fnames,loadt,cond,columnnames,mc.cores = cores)))
 }
 
 ########################################################################################################################
@@ -577,43 +577,43 @@ fdbk_dt_multi <- function(fnames,cond="",columnnames="",cores=1){
 #'    theme_bw()  +
 #'    facet_wrap(~scorename,scale="free_y",ncol = 6)
 fdbk_dt_verif_continuous <- function(DT,strat,bootscores=F,R=100){
-	# scores using all data
-	output = DT[,list(ME   = mean(veri_data-obs,na.rm=T),
-	                  SD   = sd(veri_data-obs,na.rm=T),
-	                  RMSE = sqrt(mean((veri_data-obs)^2,na.rm=T)),
-	                  MAE  = mean(abs(veri_data-obs),na.rm=T),
-	                  R2   = cor(obs,veri_data,use="pair")^2,
-	                  LEN  = as.numeric(.N)),by=strat]
-	if (length(output)>0){
-		output = melt(output,1:length(strat),(length(strat)+1):length(output),variable.name="scorename",value.name="scores",variable.factor=F,value.factor=F)
-	}
-
-	if (bootscores){
-		# bootable score functions
-		difference <- function(obs,d,veri_data){ return(veri_data[d]-obs[d]) }
-		r2b       <- function(obs,d,veri_data){ return(cor(obs[d],veri_data[d],use="pair")^2) }
-
-		# function returning a data.table with confidence intervals (5% & 95%)
-		contscores_ci <- function(obs,veri_data,R){
-			bt       = boot(obs,difference,R=R,veri_data=veri_data)$t
-			CI_ME    = as.vector(quantile(rowMeans(bt,na.rm=T),c(.05,.95)))
-			CI_MAE   = as.vector(quantile(rowMeans(abs(bt),na.rm=T),c(.05,.95)))
-			CI_RMSE  = as.vector(quantile(sqrt(rowMeans(bt*bt,na.rm=T)),c(.05,.95)))
-			CI_SD    = as.vector(quantile(rowSds(bt,na.rm=T),c(.05,.95)))
-			CI_R2   = boot.ci(boot(obs,r2b, R=R,veri_data=veri_data), type="basic", conf = c(0.95))$basic[4:5]
-			return(data.table(scorename=c("ME","MAE","RMSE","SD","R2"),
-				            CI_L=c(CI_ME[1],CI_MAE[1],CI_RMSE[1],CI_SD[1],CI_R2[1]),
-				            CI_U=c(CI_ME[2],CI_MAE[2],CI_RMSE[2],CI_SD[2],CI_R2[2])))
-		}
-
-		# calculate confidence intervals
-		confintervals = DT[,contscores_ci(obs,veri_data,R=R),by=strat]
-
-		# merge scores with confidence intervals
-		output        = merge(output,confintervals,by=c(strat,"scorename"),all=TRUE)
-	}
-
-	return(output)
+  # scores using all data
+  output = DT[,list(ME   = mean(veri_data-obs,na.rm=T),
+                    SD   = sd(veri_data-obs,na.rm=T),
+                    RMSE = sqrt(mean((veri_data-obs)^2,na.rm=T)),
+                    MAE  = mean(abs(veri_data-obs),na.rm=T),
+                    R2   = cor(obs,veri_data,use="pair")^2,
+                    LEN  = as.numeric(.N)),by=strat]
+  if (length(output)>0){
+    output = melt(output,1:length(strat),(length(strat)+1):length(output),variable.name="scorename",value.name="scores",variable.factor=F,value.factor=F)
+  }
+  
+  if (bootscores){
+    # bootable score functions
+    difference <- function(obs,d,veri_data){ return(veri_data[d]-obs[d]) }
+    r2b       <- function(obs,d,veri_data){ return(cor(obs[d],veri_data[d],use="pair")^2) }
+    
+    # function returning a data.table with confidence intervals (5% & 95%)
+    contscores_ci <- function(obs,veri_data,R){
+      bt       = boot(obs,difference,R=R,veri_data=veri_data)$t
+      CI_ME    = as.vector(quantile(rowMeans(bt,na.rm=T),c(.05,.95)))
+      CI_MAE   = as.vector(quantile(rowMeans(abs(bt),na.rm=T),c(.05,.95)))
+      CI_RMSE  = as.vector(quantile(sqrt(rowMeans(bt*bt,na.rm=T)),c(.05,.95)))
+      CI_SD    = as.vector(quantile(rowSds(bt,na.rm=T),c(.05,.95)))
+      CI_R2   = boot.ci(boot(obs,r2b, R=R,veri_data=veri_data), type="basic", conf = c(0.95))$basic[4:5]
+      return(data.table(scorename=c("ME","MAE","RMSE","SD","R2"),
+                        CI_L=c(CI_ME[1],CI_MAE[1],CI_RMSE[1],CI_SD[1],CI_R2[1]),
+                        CI_U=c(CI_ME[2],CI_MAE[2],CI_RMSE[2],CI_SD[2],CI_R2[2])))
+    }
+    
+    # calculate confidence intervals
+    confintervals = DT[,contscores_ci(obs,veri_data,R=R),by=strat]
+    
+    # merge scores with confidence intervals
+    output        = merge(output,confintervals,by=c(strat,"scorename"),all=TRUE)
+  }
+  
+  return(output)
 }
 
 
@@ -633,35 +633,35 @@ fdbk_dt_verif_continuous <- function(DT,strat,bootscores=F,R=100){
 #' @return a data.table of stratified continuous verification scores  (ME,SD,RMSE,R2,LEN)
 #' @author Felix <felix.fundel@@dwd.de>
 fdbk_dt_verif_continuous_windDir <- function(DT,strat,bootscores=F,R=100){
-	output = DT[,list(ME=mean(windBias(veri_data,obs),na.rm=T),SD=sd(windBias(veri_data,obs),na.rm=T),RMSE=sqrt(mean((windBias(veri_data,obs))^2,na.rm=T)),MAE=mean(abs(windBias(veri_data,obs)),na.rm=T),R2=cor(obs,veri_data,use="pair")^2,LEN=as.numeric(.N)),by=strat]
-	output = melt(output,1:length(strat),(length(strat)+1):length(output),variable.name="scorename",value.name="scores",variable.factor=F,value.factor=F)
-
-
-	if (bootscores){
-		difference <- function(obs,d,veri_data){ return(windBias(veri_data[d],obs[d])) }
-		r2b       <- function(obs,d,veri_data){ return(cor(obs[d],veri_data[d],use="pair")^2) }
-
-		# function returning a data.table with confidence intervals (5% & 95%)
-		contscores_ci <- function(obs,veri_data,R){
-			bt       = boot(obs,difference,R=R,veri_data=veri_data)$t
-			CI_ME    = as.vector(quantile(rowMeans(bt,na.rm=T),c(.05,.95)))
-			CI_MAE   = as.vector(quantile(rowMeans(abs(bt),na.rm=T),c(.05,.95)))
-			CI_RMSE  = as.vector(quantile(sqrt(rowMeans(bt*bt,na.rm=T)),c(.05,.95)))
-			CI_SD    = as.vector(quantile(rowSds(bt,na.rm=T),c(.05,.95)))
-			CI_R2   = boot.ci(boot(obs,r2b, R=R,veri_data=veri_data), type="basic", conf = c(0.95))$basic[4:5]
-			return(data.table(scorename=c("ME","MAE","RMSE","SD","R2"),
-				            CI_L=c(CI_ME[1],CI_MAE[1],CI_RMSE[1],CI_SD[1],CI_R2[1]),
-				            CI_U=c(CI_ME[2],CI_MAE[2],CI_RMSE[2],CI_SD[2],CI_R2[2])))
-		}
-
-		# calculate confidence intervals
-		confintervals = DT[,contscores_ci(obs,veri_data,R=R),by=strat]
-
-		# merge scores with confidence intervals
-		output        = merge(output,confintervals,by=c(strat,"scorename"),all=TRUE)
-	}
-
-	return(output)
+  output = DT[,list(ME=mean(windBias(veri_data,obs),na.rm=T),SD=sd(windBias(veri_data,obs),na.rm=T),RMSE=sqrt(mean((windBias(veri_data,obs))^2,na.rm=T)),MAE=mean(abs(windBias(veri_data,obs)),na.rm=T),R2=cor(obs,veri_data,use="pair")^2,LEN=as.numeric(.N)),by=strat]
+  output = melt(output,1:length(strat),(length(strat)+1):length(output),variable.name="scorename",value.name="scores",variable.factor=F,value.factor=F)
+  
+  
+  if (bootscores){
+    difference <- function(obs,d,veri_data){ return(windBias(veri_data[d],obs[d])) }
+    r2b       <- function(obs,d,veri_data){ return(cor(obs[d],veri_data[d],use="pair")^2) }
+    
+    # function returning a data.table with confidence intervals (5% & 95%)
+    contscores_ci <- function(obs,veri_data,R){
+      bt       = boot(obs,difference,R=R,veri_data=veri_data)$t
+      CI_ME    = as.vector(quantile(rowMeans(bt,na.rm=T),c(.05,.95)))
+      CI_MAE   = as.vector(quantile(rowMeans(abs(bt),na.rm=T),c(.05,.95)))
+      CI_RMSE  = as.vector(quantile(sqrt(rowMeans(bt*bt,na.rm=T)),c(.05,.95)))
+      CI_SD    = as.vector(quantile(rowSds(bt,na.rm=T),c(.05,.95)))
+      CI_R2   = boot.ci(boot(obs,r2b, R=R,veri_data=veri_data), type="basic", conf = c(0.95))$basic[4:5]
+      return(data.table(scorename=c("ME","MAE","RMSE","SD","R2"),
+                        CI_L=c(CI_ME[1],CI_MAE[1],CI_RMSE[1],CI_SD[1],CI_R2[1]),
+                        CI_U=c(CI_ME[2],CI_MAE[2],CI_RMSE[2],CI_SD[2],CI_R2[2])))
+    }
+    
+    # calculate confidence intervals
+    confintervals = DT[,contscores_ci(obs,veri_data,R=R),by=strat]
+    
+    # merge scores with confidence intervals
+    output        = merge(output,confintervals,by=c(strat,"scorename"),all=TRUE)
+  }
+  
+  return(output)
 }
 
 ########################################################################################################################
@@ -699,18 +699,18 @@ fdbk_dt_verif_continuous_windDir <- function(DT,strat,bootscores=F,R=100){
 #' ggtitle("CSI")+
 #' facet_wrap(~varno,scales="free_x")
 fdbk_dt_conttable <- function(DT,vars=NULL,thrs=NULL,by=NULL,cores=1){
-        if(!all(c("varno","obs","veri_data")%in%names(DT))){
-		stop("DT needs at least columns 'varno','obs' and 'veri_data'")
-	}
-	if (is.null(vars)){ vars = as.character(unique(DT$varno))}
-	if (is.null(thrs)){ thrs = lapply(vars,function(v){return(unique(quantile(DT[DT$varno==v]$obs,seq(.05,.95,by=.1))))}); names(thrs) = vars}
-	inner <- function(var,thrs){
-		inner2 <- function(t,v){
-			return(DT[DT$varno==v,list(varno=v,thr=t,hit=sum(veri_data>=t & obs>=t), miss=sum(veri_data<t & obs>=t), false=sum(veri_data>=t & obs<t),corrneg=sum(veri_data<t & obs<t)),by=by])
-		}
-		return(do.call(.rbind.data.table,lapply(unlist(thrs[var]),inner2,var)))
-	}
-	return(do.call(.rbind.data.table,mclapply(vars,inner,thrs,mc.cores = cores)))
+  if(!all(c("varno","obs","veri_data")%in%names(DT))){
+    stop("DT needs at least columns 'varno','obs' and 'veri_data'")
+  }
+  if (is.null(vars)){ vars = as.character(unique(DT$varno))}
+  if (is.null(thrs)){ thrs = lapply(vars,function(v){return(unique(quantile(DT[DT$varno==v]$obs,seq(.05,.95,by=.1))))}); names(thrs) = vars}
+  inner <- function(var,thrs){
+    inner2 <- function(t,v){
+      return(DT[DT$varno==v,list(varno=v,thr=t,hit=sum(veri_data>=t & obs>=t), miss=sum(veri_data<t & obs>=t), false=sum(veri_data>=t & obs<t),corrneg=sum(veri_data<t & obs<t)),by=by])
+    }
+    return(do.call(.rbind.data.table,lapply(unlist(thrs[var]),inner2,var)))
+  }
+  return(do.call(.rbind.data.table,mclapply(vars,inner,thrs,mc.cores = cores)))
 }
 
 ########################################################################################################################
@@ -747,18 +747,18 @@ fdbk_dt_conttable <- function(DT,vars=NULL,thrs=NULL,by=NULL,cores=1){
 #' facet_grid(~varno)+
 #' ggtitle("CSI")
 fdbk_dt_conttable_2thrs <- function(DT,thrs,by,cores=1,incores=1){
-	inner <- function(var,thrs,incores){
-		inner2 <- function(tind,v,t){
-			interv=c(t$lower[tind],t$upper[tind])
-			return(DT[DT$varno==v,list(hit     = sum(veri_data%between%interv & obs%between%interv), 
-		                                   miss   = sum(!veri_data%between%interv & obs%between%interv), 
-		                                   false    = sum(veri_data%between%interv & !obs%between%interv),
-		                                   corrneg = sum(!veri_data%between%interv & !obs%between%interv),
-			                           thr     = paste(interv[!is.infinite(interv)],collapse="-")),by=by])
-		}
-		return(do.call(.rbind.data.table,mclapply(seq(1,length(thrs[[var]]$lower)),inner2,var,thrs[[var]],mc.cores = incores)))
-	}
-	return(do.call(.rbind.data.table,mclapply(names(thrs),inner,thrs,incores,mc.cores = cores)))
+  inner <- function(var,thrs,incores){
+    inner2 <- function(tind,v,t){
+      interv=c(t$lower[tind],t$upper[tind])
+      return(DT[DT$varno==v,list(hit     = sum(veri_data%between%interv & obs%between%interv), 
+                                 miss   = sum(!veri_data%between%interv & obs%between%interv), 
+                                 false    = sum(veri_data%between%interv & !obs%between%interv),
+                                 corrneg = sum(!veri_data%between%interv & !obs%between%interv),
+                                 thr     = paste(interv[!is.infinite(interv)],collapse="-")),by=by])
+    }
+    return(do.call(.rbind.data.table,mclapply(seq(1,length(thrs[[var]]$lower)),inner2,var,thrs[[var]],mc.cores = incores)))
+  }
+  return(do.call(.rbind.data.table,mclapply(names(thrs),inner,thrs,incores,mc.cores = cores)))
 }
 
 ########################################################################################################################
@@ -791,23 +791,23 @@ fdbk_dt_conttable_2thrs <- function(DT,thrs,by,cores=1,incores=1){
 #' facet_grid(scorename~varno,scale="free_y")+
 #' theme_bw()
 fdbk_dt_contscores <- function(CONTTABLE,by){
-	return(melt(CONTTABLE[,list(POD = (hit)/(hit+miss),
-		        TSS  =  hit/(hit + miss)-false/(false+corrneg),
-		        FAR  =  false/(hit + false),
-		        FBI  = (hit+false)/(hit + miss),
-		        OR   = (hit*corrneg)/(miss*false),
-                        POFD = false/(corrneg+false),
-                        SR   = hit/(hit+false), 
-                        CSI  = hit/(hit+miss+false),
-                        ACC  = (hit+corrneg)/(hit+miss+corrneg+false),
-                        ORSS = (hit*corrneg - miss*false) / (hit*corrneg + miss*false),
-		        ETS  = (hit-(hit+miss)*(hit+false)/(hit+miss+false+corrneg))/(hit+miss+false-(hit+miss)*(hit+false)/(hit+miss+false+corrneg)),
-		        HSS  = ((hit+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg))  /  ((hit+miss+false+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg)),
-			NHIT = hit,
-			NMISS = miss,
-			NFALSE = false,
-			NCORRNEG = corrneg,
-		        LEN  = hit+miss+corrneg+false),by],id=1:length(by), measure=(length(by)+1):(17+length(by)),variable.name = "scorename", value.name = "scores"))
+  return(melt(CONTTABLE[,list(POD = (hit)/(hit+miss),
+                              TSS  =  hit/(hit + miss)-false/(false+corrneg),
+                              FAR  =  false/(hit + false),
+                              FBI  = (hit+false)/(hit + miss),
+                              OR   = (hit*corrneg)/(miss*false),
+                              POFD = false/(corrneg+false),
+                              SR   = hit/(hit+false), 
+                              CSI  = hit/(hit+miss+false),
+                              ACC  = (hit+corrneg)/(hit+miss+corrneg+false),
+                              ORSS = (hit*corrneg - miss*false) / (hit*corrneg + miss*false),
+                              ETS  = (hit-(hit+miss)*(hit+false)/(hit+miss+false+corrneg))/(hit+miss+false-(hit+miss)*(hit+false)/(hit+miss+false+corrneg)),
+                              HSS  = ((hit+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg))  /  ((hit+miss+false+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg)),
+                              NHIT = hit,
+                              NMISS = miss,
+                              NFALSE = false,
+                              NCORRNEG = corrneg,
+                              LEN  = hit+miss+corrneg+false),by],id=1:length(by), measure=(length(by)+1):(17+length(by)),variable.name = "scorename", value.name = "scores"))
 }
 
 ########################################################################################################################
@@ -846,16 +846,16 @@ fdbk_dt_contscores <- function(CONTTABLE,by){
 #' theme_bw()+
 #' ggtitle("Percent Correct (within interval)")
 fdbk_dt_hits_uncert <- function(DT,thrs,by,cores=1,incores=1){
-	inner <- function(var,thrs,incores){
-		inner2 <- function(tind,v,t){
-			interv = c(t$lower[tind],t$upper[tind])
-			return(DT[DT$varno==v,list(hit      = sum((obs-veri_data)%between%interv), 
-		                                   total    = .N,
-			                           interval = paste(round(interv[!is.infinite(interv)],3),collapse="-")),by=by])
-		}
-		return(do.call(.rbind.data.table,mclapply(seq(1,length(thrs[[var]]$lower)),inner2,var,thrs[[var]],mc.cores = incores)))
-	}
-	return(do.call(.rbind.data.table,mclapply(names(thrs),inner,thrs,incores,mc.cores = cores)))
+  inner <- function(var,thrs,incores){
+    inner2 <- function(tind,v,t){
+      interv = c(t$lower[tind],t$upper[tind])
+      return(DT[DT$varno==v,list(hit      = sum((obs-veri_data)%between%interv), 
+                                 total    = .N,
+                                 interval = paste(round(interv[!is.infinite(interv)],3),collapse="-")),by=by])
+    }
+    return(do.call(.rbind.data.table,mclapply(seq(1,length(thrs[[var]]$lower)),inner2,var,thrs[[var]],mc.cores = incores)))
+  }
+  return(do.call(.rbind.data.table,mclapply(names(thrs),inner,thrs,incores,mc.cores = cores)))
 }
 
 ########################################################################################################################
@@ -915,20 +915,20 @@ fdbk_dt_hits_uncert <- function(DT,thrs,by,cores=1,incores=1){
 #'  geom_path()+facet_wrap(~varno~scorename,scale="free_x",ncol=3)+
 #'  scale_y_reverse()+theme_bw()+scale_colour_discrete("lead-time")
 fdbk_dt_crps <- function(DT,by){
-	nmem       = length(unique(DT$veri_ens_member))
-	uniq_olen  = unique(DT[,list(len=.N),by=c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")])]$len)
-	keycols    = paste(c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")],"veri_ens_member"),collapse=",")
-	eval(parse(text=paste("setkey(DT,",keycols,")",sep="")))
-        if (!identical(as.integer(DT$veri_ens_member),rep(seq(1,nmem),dim(DT)[1]/nmem))){
-		stop("unsufficient information in DT to uniquely eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
-	}
-	DT[,c("crps","crpsPot","Reli"):=crpsDecomposition(obs=obs[seq(1,length(obs),by=nmem)],eps=t(matrix(veri_data,nrow=nmem)))[c(1,2,3)],by=by]
-	eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
-        scores = DT[,c(by,"crps","crpsPot","Reli"),with=F]
-	scores = scores[!duplicated(scores)]
-        scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
-	DT[,c("crps","crpsPot","Reli"):=NULL,]
-	return(scores)
+  nmem       = length(unique(DT$veri_ens_member))
+  uniq_olen  = unique(DT[,list(len=.N),by=c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")])]$len)
+  keycols    = paste(c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")],"veri_ens_member"),collapse=",")
+  eval(parse(text=paste("setkey(DT,",keycols,")",sep="")))
+  if (!identical(as.integer(DT$veri_ens_member),rep(seq(1,nmem),dim(DT)[1]/nmem))){
+    stop("unsufficient information in DT to uniquely eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
+  }
+  DT[,c("crps","crpsPot","Reli"):=crpsDecomposition(obs=obs[seq(1,length(obs),by=nmem)],eps=t(matrix(veri_data,nrow=nmem)))[c(1,2,3)],by=by]
+  eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
+  scores = DT[,c(by,"crps","crpsPot","Reli"),with=F]
+  scores = scores[!duplicated(scores)]
+  scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
+  DT[,c("crps","crpsPot","Reli"):=NULL,]
+  return(scores)
 }
 ########################################################################################################################
 ########################################################################################################################
@@ -964,13 +964,13 @@ fdbk_dt_crps <- function(DT,by){
 #'   geom_path()+geom_point()+facet_wrap(~scorename~varno,scale="free_x",ncol=4)+
 #'   scale_y_reverse()+theme_bw()+scale_colour_discrete("lead-time")
 fdbk_dt_crps_norm <- function(DT,by){
-	DT[,c("CRPS","IGN"):=crps(obs=obs[veri_description=="mean"],pred=cbind(veri_data[veri_description=="mean"],veri_data[veri_description=="spread"]))[c(2,4)],by=by]
-	eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
-	scores = DT[,c(by,"CRPS","IGN"),with=F]
-	scores = scores[!duplicated(scores)]
-	scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
-	DT[,c("CRPS","IGN"):=NULL,]
-	return(scores)
+  DT[,c("CRPS","IGN"):=crps(obs=obs[veri_description=="mean"],pred=cbind(veri_data[veri_description=="mean"],veri_data[veri_description=="spread"]))[c(2,4)],by=by]
+  eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
+  scores = DT[,c(by,"CRPS","IGN"),with=F]
+  scores = scores[!duplicated(scores)]
+  scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
+  DT[,c("CRPS","IGN"):=NULL,]
+  return(scores)
 }
 ########################################################################################################################
 ########################################################################################################################
@@ -1000,40 +1000,40 @@ fdbk_dt_crps_norm <- function(DT,by){
 #'   geom_line()+geom_point()+facet_wrap(~varno,scale="free_y",ncol=2)+
 #'   theme_bw()+scale_colour_discrete("lead-time")
 fdbk_dt_brier <- function(DT,thresholds="",by=""){
-	nmem       = length(unique(DT$veri_ens_member))
-	if (all(thresholds=="")){
-		warning("Using median(s) as threshold(s)")
-		thr=DT[,list(median=median(obs)),by=varno]
-		thresholds = as.list(round(thr$median,3))
-		names(thresholds)=thr$varno
-	}
-	if (all(by=="")){
-		by = names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")]
-		warning (paste("Split scores for",paste(by,collapse=", ")))
-	}
-
-	keycols = paste(c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")],"veri_ens_member"),collapse=",")
-	eval(parse(text=paste("setkey(DT,",keycols,")",sep="")))
-        if (!identical(as.integer(DT$veri_ens_member),rep(seq(1,nmem),dim(DT)[1]/nmem))){
-		stop("unsufficient information in DT to uniquely eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
-	}
-
-	DT[,FCID:=rep(seq(1,dim(DT)[1]/nmem),each=nmem)]
-	PROBS = NULL
-	for (i in 1:length(thresholds)){
-		PROBS=.rbind.data.table(PROBS, DT[varno==as.integer(names(thresholds[i])),list(POB=sum(obs>thresholds[i])/nmem,PFC=sum(veri_data>thresholds[i])/nmem),by=c("FCID",by)])
-	}
-        DT[,FCID:=NULL]
-	PROBS[,c("BS","BSS","REL","RES","UNC"):=brier(POB,PFC)[c(2,4,5,6,7)],by=by]
-	PROBS[,c("POB","PFC","FCID"):=NULL]
-	PROBS = PROBS[!duplicated(PROBS)]
-	PROBS = melt(PROBS,1:length(by),(length(by)+1):dim(PROBS)[2],"scorename","score")
-	for (i in 1:length(thresholds)){
-		PROBS[varno==as.integer(names(thresholds[i])) ,varnon:=paste(varno_to_name(varno,F),"thr:",thresholds[i])]
-	}
-	PROBS[,varno:=varnon]
-	PROBS[,varnon:=NULL]
-	return(PROBS)
+  nmem       = length(unique(DT$veri_ens_member))
+  if (all(thresholds=="")){
+    warning("Using median(s) as threshold(s)")
+    thr=DT[,list(median=median(obs)),by=varno]
+    thresholds = as.list(round(thr$median,3))
+    names(thresholds)=thr$varno
+  }
+  if (all(by=="")){
+    by = names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")]
+    warning (paste("Split scores for",paste(by,collapse=", ")))
+  }
+  
+  keycols = paste(c(names(DT)[!names(DT)%chin%c("obs","veri_data","veri_ens_member")],"veri_ens_member"),collapse=",")
+  eval(parse(text=paste("setkey(DT,",keycols,")",sep="")))
+  if (!identical(as.integer(DT$veri_ens_member),rep(seq(1,nmem),dim(DT)[1]/nmem))){
+    stop("unsufficient information in DT to uniquely eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
+  }
+  
+  DT[,FCID:=rep(seq(1,dim(DT)[1]/nmem),each=nmem)]
+  PROBS = NULL
+  for (i in 1:length(thresholds)){
+    PROBS=.rbind.data.table(PROBS, DT[varno==as.integer(names(thresholds[i])),list(POB=sum(obs>thresholds[i])/nmem,PFC=sum(veri_data>thresholds[i])/nmem),by=c("FCID",by)])
+  }
+  DT[,FCID:=NULL]
+  PROBS[,c("BS","BSS","REL","RES","UNC"):=brier(POB,PFC)[c(2,4,5,6,7)],by=by]
+  PROBS[,c("POB","PFC","FCID"):=NULL]
+  PROBS = PROBS[!duplicated(PROBS)]
+  PROBS = melt(PROBS,1:length(by),(length(by)+1):dim(PROBS)[2],"scorename","score")
+  for (i in 1:length(thresholds)){
+    PROBS[varno==as.integer(names(thresholds[i])) ,varnon:=paste(varno_to_name(varno,F),"thr:",thresholds[i])]
+  }
+  PROBS[,varno:=varnon]
+  PROBS[,varnon:=NULL]
+  return(PROBS)
 }
 
 ########################################################################################################################
@@ -1062,48 +1062,48 @@ fdbk_dt_brier <- function(DT,thresholds="",by=""){
 #' ATTR      = fdbk_dt_reliability_diagram(DT,thresholds="",by=c("varno","veri_forecast_time"),breaks="")
 #' ggplot(ATTR,aes(x=fbin,y=obin,color=factor(veri_forecast_time),group=veri_forecast_time))+geom_line()+geom_point()+facet_wrap(~varno)+ geom_abline(intercept = 0, slope = 1)+theme_bw()
 fdbk_dt_reliability_diagram <- function(DT,thresholds="",by="",breaks=""){
-	# number of members
-	nmem = length(unique(DT$veri_ens_member))
-	# if not threshold is selected use median
-	if (all(thresholds == "")) {
-		print("Using median(s) as threshold(s)")
-		thr = DT[, list(median = median(obs)), by = varno]
-		thresholds = as.list(round(thr$median, 3))
-		names(thresholds) = thr$varno
-	}
-	# sort columns	
-	keycols = paste(c(names(DT)[!names(DT) %chin% c("obs", "veri_data", "veri_ens_member")], "veri_ens_member"), collapse = ",")
-	eval(parse(text = paste("setkey(DT,", keycols, ")", sep = "")))
-	# check if all forecasts are distinguishable
-	# and add a forecast id to DT
-	if (!identical(as.integer(DT$veri_ens_member), rep(seq(1,nmem), dim(DT)[1]/nmem))) {
-		stop("unsufficient information in DT to uniquely assign eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
-	}
-	DT[, `:=`(FCID, rep(seq(1, dim(DT)[1]/nmem), each = nmem))]
-	# calculate probability to exceed threshold for each variable
-	PROBS = NULL
-	for (i in 1:length(thresholds)) {
-		PROBS = .rbind.data.table(PROBS, DT[varno == as.integer(names(thresholds[i])),list(POB = sum(obs > thresholds[i])/nmem, PFC = sum(veri_data > thresholds[i])/nmem),by = c("FCID", by)])
-	}
-	# delete forecast id from DT
-	DT[, `:=`(FCID, NULL)]
-	# create breaks for reliability diagram if not sepcified
-	if (any(breaks=="")){
-		breaks = seq(0,1,len=nmem+1)
-	}
-	labels = diff(breaks/2)+breaks[1:(length(breaks)-1)]
-	# cut probabilities in bins	
-	PROBS[,fbin:=cut(PROBS$PFC,breaks=breaks,labels=labels,include.lowest=T)]
-	for (i in 1:length(thresholds)) {
-		PROBS[varno == as.integer(names(thresholds[i])), `:=`(varnon,paste(varno_to_name(varno, F), "thr:", thresholds[i]))]
-	}
-	PROBS[,varno:=varnon]
-	PROBS[,varnon:=NULL]
-	# calculate and return occurence frequencies of bins
-	ATTR = PROBS[,list(obin=sum(POB==1)/length(POB)),by=c("fbin",by)]
-	#ATTR[,fbin:=as.numeric(as.character(ATTR$fbin))]
-	ATTR[,fbin:=as.numeric(levels(ATTR$fbin))[ATTR$fbin]]
-	return(ATTR)
+  # number of members
+  nmem = length(unique(DT$veri_ens_member))
+  # if not threshold is selected use median
+  if (all(thresholds == "")) {
+    print("Using median(s) as threshold(s)")
+    thr = DT[, list(median = median(obs)), by = varno]
+    thresholds = as.list(round(thr$median, 3))
+    names(thresholds) = thr$varno
+  }
+  # sort columns	
+  keycols = paste(c(names(DT)[!names(DT) %chin% c("obs", "veri_data", "veri_ens_member")], "veri_ens_member"), collapse = ",")
+  eval(parse(text = paste("setkey(DT,", keycols, ")", sep = "")))
+  # check if all forecasts are distinguishable
+  # and add a forecast id to DT
+  if (!identical(as.integer(DT$veri_ens_member), rep(seq(1,nmem), dim(DT)[1]/nmem))) {
+    stop("unsufficient information in DT to uniquely assign eps forecasts to observations (typical fixes: add column or remove duplicated stations)")
+  }
+  DT[, `:=`(FCID, rep(seq(1, dim(DT)[1]/nmem), each = nmem))]
+  # calculate probability to exceed threshold for each variable
+  PROBS = NULL
+  for (i in 1:length(thresholds)) {
+    PROBS = .rbind.data.table(PROBS, DT[varno == as.integer(names(thresholds[i])),list(POB = sum(obs > thresholds[i])/nmem, PFC = sum(veri_data > thresholds[i])/nmem),by = c("FCID", by)])
+  }
+  # delete forecast id from DT
+  DT[, `:=`(FCID, NULL)]
+  # create breaks for reliability diagram if not sepcified
+  if (any(breaks=="")){
+    breaks = seq(0,1,len=nmem+1)
+  }
+  labels = diff(breaks/2)+breaks[1:(length(breaks)-1)]
+  # cut probabilities in bins	
+  PROBS[,fbin:=cut(PROBS$PFC,breaks=breaks,labels=labels,include.lowest=T)]
+  for (i in 1:length(thresholds)) {
+    PROBS[varno == as.integer(names(thresholds[i])), `:=`(varnon,paste(varno_to_name(varno, F), "thr:", thresholds[i]))]
+  }
+  PROBS[,varno:=varnon]
+  PROBS[,varnon:=NULL]
+  # calculate and return occurence frequencies of bins
+  ATTR = PROBS[,list(obin=sum(POB==1)/length(POB)),by=c("fbin",by)]
+  #ATTR[,fbin:=as.numeric(as.character(ATTR$fbin))]
+  ATTR[,fbin:=as.numeric(levels(ATTR$fbin))[ATTR$fbin]]
+  return(ATTR)
 }
 
 ########################################################################################################################
@@ -1143,10 +1143,10 @@ fdbk_dt_reliability_diagram <- function(DT,thresholds="",by="",breaks=""){
 #'      theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))
 #' p
 comparableRows <- function(DT,splitCol,splitVal,compareBy){
-        eval(parse(text=paste0("DT[,XXLENDUMMYXX:=sum(",splitCol,"%in%splitVal)==length(splitVal),by=compareBy]")))
-        keep = DT$XXLENDUMMYXX
-        DT[,XXLENDUMMYXX:=NULL]
-        return(keep)
+  eval(parse(text=paste0("DT[,XXLENDUMMYXX:=sum(",splitCol,"%in%splitVal)==length(splitVal),by=compareBy]")))
+  keep = DT$XXLENDUMMYXX
+  DT[,XXLENDUMMYXX:=NULL]
+  return(keep)
 }
 
 ########################################################################################################################
@@ -1155,6 +1155,64 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 ########################################################################################################################
 ########################################################################################################################
 
+
+#' Bin a data.table column around user defined levels and replace it with the levels value.
+#' 
+#' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to 
+#' bin instead of the bins limits. 
+#' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ 
+#' in the sense that fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in 
+#' fdbk_dt_binning_level. This function allows to have non-equally spaced levels without gaps between the bins, so that 
+#' the level is not always at the center of the bin. 
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@gmail.com>
+#'
+#' @seealso \code{\link{cut}}
+#'
+#' @examples 
+#' #plot scores accross binned levels
+#' require(ggplot2)
+#' fnames       = "~/examplesRfdbk/icon/temp/verTEMP.2014120112"
+#' cond        = list(obs="!is.na(obs)",varno="varno%in%c(2,3,4,29)")
+#' columnnames = c("obs","veri_data","varno","state","level")
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' levels = c(100000,92500,85000,70000,60000,50000,40000,30000)
+#' DT = fdbk_dt_binning_level(DT,"level",levels)
+#' DT$varno    = varno_to_name(DT$varno)
+#' strat       = c("varno","level")
+#' scores      = fdbk_dt_verif_continuous(DT,strat)
+#' setkey(scores,scorename,varno,level)
+#' scores      = scores[!is.na(scores),]
+#' p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
+#'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
+#'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
+#' p
+fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
+  bins = getVarToBin(DT,varToBin) 
+  levels = sort(levels,T) # Sort levels in decresaing order in case levels are not sorted 
+  dp = diff(levels)/2
+  binLower <- levels + dp[c(seq(along=dp), length(dp))]
+  binUpper <- levels - dp[c(1, seq(along=dp))]
+  
+  for (i in 1:length(binLower)){
+    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
+  }
+  
+  DT[,varToBin] = bins
+  
+  
+  return(DT)
+}
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
 #' Bin a data.table column into user defined bins and replace it with the bin center value.
 #' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
@@ -1189,14 +1247,148 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
 fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
-	bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
-	for (i in 1:length(binLower)){
-		bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
-	}
-        DT[,varToBin] = bins
-	return(DT)
+  bins = getVarToBin(DT,varToBin) 
+  for (i in 1:length(binLower)){
+    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
+  }
+  DT[,varToBin] = bins
+  return(DT)
 }
 
+###################
+getVarToBin <- function(DT,varToBin) {
+  bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
+  return(bins)
+}
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+#' Bin a data.table column into user defined bins and replace it with the bin center value.
+#' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  mode that will be used to defined the bin. Choices are "bin" or "level". In the first case the limtis of the bins have to be explicitly 
+#' given in two vectors. The name given to the corresponding levels of the bin will be the mean of the lower and upper limit of the bin. In the second case a vector 
+#' specifying the levels has to be given. The limits of the bins will be calculated by taking the mean between neighbouring levels. The two methods differ in the sense that 
+#' the "bin" mode allow to have gaps between the bins, whereas the bins will be continuous in "level" mode. The "level" mode allow to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
+#' @param  binLower number/vector lower bins limits
+#' @param  binUpper number/vector upper bins limits
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@meteoswiss.ch>
+#' 
+#' @examples
+#' # Example of linear interpolation based on an international standard atmosphere profile
+#' require(ggplot2)
+#' require(Rfdbk)
+#' require(reshape2)
+#' a1 = -6.5 # K/km standard atmosphere lapse rate, represents observations
+#' a2 = -9 # K/km lapse rate obtained from a fictive model output
+#' b1 = 288.15 # K standard atmosphere surface temperature
+#' b2 = 295 # K surface temperature obtained from a fictive model output
+#' Ho = 8.4 # km scale height
+#' po = 1013.25 # standard atmosphere pressure in hPa
+#' p = seq(250,1000,10) # pressure until the tropopause
+#' T1 = a1*Ho*log(po/p)+b1 # Standard amtmosphere temperature profile
+#' T2 =  a2*Ho*log(po/p)+b2 # Model output temperature profile 
+#' Bias = T2-T1 # Bias = forecast - observation 
+#' 
+#' # Build a data table in feedback files format
+#' obs = T1
+#' veri_data = T2
+#' veri_forecast_time = 24
+#' veri_initial_date = 2015110900
+#' time = -720
+#' lat = 46.812
+#' lon = 6.943
+#' varno = 2
+#' veri_model = "COSMO"
+#' plevel = p
+#' ident = 6610
+#' levels = c(1000, 975, 950, 925, 900, 875, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250) # Levels on which to interpolate
+#' DT = data.frame(obs,veri_data,veri_forecast_time,veri_initial_date,time,lat,lon,varno,veri_model,plevel,ident)
+#' DT           = fdbk_dt_interpolate(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels) # interpolate DT
+#'
+#' data1 = melt(data.frame(T1,p),id="T1") # Data for the standard atmosphere temperature profile
+#' data2 = melt(data.frame(T2=DT$obs,DT$plevel),id="T2") # Interpolation of data1 
+#' 
+#' 
+#' plot = ggplot() + geom_point(data=data1,aes(x=T1,y=value,colour=variable)) + geom_point(data=data2,aes(x=T2,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T [K]") + ylab("pressure [hPa]")+  scale_colour_manual(name="Temperature",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot) # plot of the Standard atmosphere profile and its interpolation 
+#' 
+#' allscores = fdbk_dt_verif_continuous(DT,strat=c("varno","veri_model","plevel") ) # Data table with scores
+#' 
+#' data3 = melt(data.frame(Bias,p),id="Bias") # Bias calculated directly from the standard atmosphere and model output profiles
+#' ME = allscores[allscores$scorename=="ME"]$scores # scores calculated with fdbk_dt_verif_continuous on interpolation levels
+#' ME_levels = allscores[allscores$scorename=="ME"]$plevel # interpolation levels
+#' data4 = melt(data.frame(ME,ME_levels),id="ME")
+#' plot2 = ggplot() + geom_point(data=data3,aes(x=Bias,y=value,colour=variable)) + geom_point(data=data4,aes(x=ME,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T bias [K]") + ylab("pressure [hPa]")+scale_colour_manual(name="Bias",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot2) # plot of the bias calculated directly from the profiles and the bias from the interpolation
+
+fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels, varno="varno"){
+  
+  #OneSounding = data.frame(,nrow=1,ncol=dim(DT)[2])
+  Ncol = ncol(DT)
+  n = nrow(DT)
+  OneSounding = as.data.frame(matrix(,nrow=1,Ncol)) # vector to store one single sounding at a time and interpolate it
+  Colnames = colnames(DT)
+  colnames(OneSounding) = Colnames
+  OneSounding[1,] = DT[1,] # Store the first row of DT in the first row of OneSounding
+  newDT = c()
+  k = 1
+  for (i in 2:n){
+    
+    soundingDone = TRUE # Boolean if i correspond to the end of a souding 
+    checknames <- c("ident", "veri_forecast_time", "veri_initial_date", "time")
+    if (all(DT[i,checknames] == DT[i-1,checknames])){
+      soundingDone = FALSE # if previous row in DT is the same sounding as the current row, sounding is not done
+      k = k+1
+      OneSounding[k,] = DT[i,] # Store ther current row of DT in the current sounding
+    } 
+    if (soundingDone==TRUE | i==n){ # if the end of a sounding or the end of DT is reached, interpolate the current sounding and store it DTT
+      OneSounding = na.omit(OneSounding)
+      ik = unique(OneSounding[[varno]]) # Vector of all the different variables measured in one sounding 
+      ds3 = as.numeric(OneSounding[[varno]])
+      for (k in ik){
+        kk = ds3 == k 
+        OneVarno = OneSounding[kk,] # Vector of one souding for just one variable
+        x = log(OneVarno[[levelToInter]])  # Take the variable levelToInter
+        
+        # interX is the range of interLevels that is contained in the sounding
+        interX = interLevels[log(interLevels)<=max(x) & log(interLevels)>=min(x)]
+        if (length(x) > 2 & length(interX)>2) {
+          inter = matrix(,nrow=length(interX),ncol=length(varToInter))          
+          for (l in 1:length(varToInter)){ # Interpolate for all variables
+            
+            y = OneVarno[[varToInter[l]]] # Take the values to interpolate
+            inter[,l] = approx(x,y,log(interX))$y # Do the Interpolation
+          }
+          
+          
+          inter = as.data.frame(inter)
+          
+          colnames(inter) = varToInter # Give the colunames to inter
+          DTT = data.frame(inter,OneVarno[,3:Ncol][1:length(interX),1:(Ncol-2)])
+          DTT[[levelToInter]] = interX
+          newDT = .rbind.data.table(newDT,DTT) # Bind DTT and newDT
+        }  
+      }
+      OneSounding = as.data.frame(matrix(,nrow=200,Ncol)) # re-allocate OneSounding for the next sounding 
+      colnames(OneSounding) = Colnames
+      OneSounding[1,] = DT[i,] 
+      k = 1 # Restart the level counter for the next sounding 
+    }
+  }
+  return(newDT)
+} 
 
 ########################################################################################################################
 ########################################################################################################################
@@ -1226,9 +1418,9 @@ fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
 #' SPD       = fdbk_dt_uv2spd(DT)  
 #' .rbind.data.table(DT,SPD)
 fdbk_dt_uv2spd <- function(DATATABLE,col=c("obs","veri_data")){
-	by_distinct = names(DATATABLE)[!names(DATATABLE)%in%c(col,"varno")]
-	setkey(DATATABLE,varno)
-	return(eval(parse(text=paste0("DATATABLE[varno%in%c(3,4),list(",paste0(paste0(col,"=windSpeed(",col,"[1],",col,"[2])"),collapse=","),",varno=112),by=by_distinct]"))))
+  by_distinct = names(DATATABLE)[!names(DATATABLE)%in%c(col,"varno")]
+  setkey(DATATABLE,varno)
+  return(eval(parse(text=paste0("DATATABLE[varno%in%c(3,4),list(",paste0(paste0(col,"=windSpeed(",col,"[1],",col,"[2])"),collapse=","),",varno=112),by=by_distinct]"))))
 }
 
 
@@ -1260,9 +1452,9 @@ fdbk_dt_uv2spd <- function(DATATABLE,col=c("obs","veri_data")){
 #' DRC       = fdbk_dt_uv2drc(DT)  
 #' .rbind.data.table(DT,DRC)
 fdbk_dt_uv2drc <- function(DATATABLE,col=c("obs","veri_data")){
-	by_distinct = names(DATATABLE)[!names(DATATABLE)%in%c(col,"varno")]
-	setkey(DATATABLE,varno)
-	return(eval(parse(text=paste0("DATATABLE[varno%in%c(3,4),list(",paste0(paste0(col,"=windDir(",col,"[1],",col,"[2])"),collapse=","),",varno=111),by=by_distinct]"))))
+  by_distinct = names(DATATABLE)[!names(DATATABLE)%in%c(col,"varno")]
+  setkey(DATATABLE,varno)
+  return(eval(parse(text=paste0("DATATABLE[varno%in%c(3,4),list(",paste0(paste0(col,"=windDir(",col,"[1],",col,"[2])"),collapse=","),",varno=111),by=by_distinct]"))))
 }
 
 
@@ -1282,12 +1474,12 @@ fdbk_dt_uv2drc <- function(DATATABLE,col=c("obs","veri_data")){
 #'
 #' @author Felix <felix.fundel@@dwd.de>
 afc <- function(obsv,fcst){
-	ind = !(is.na(obsv) | is.na(fcst) | is.infinite(obsv) | is.infinite(fcst))
-	if (all(!ind)){
-		return(NaN)
-	}else{
-		return((1 + cor.fk(obsv[ind],fcst[ind]))/2)
-	}
+  ind = !(is.na(obsv) | is.na(fcst) | is.infinite(obsv) | is.infinite(fcst))
+  if (all(!ind)){
+    return(NaN)
+  }else{
+    return((1 + cor.fk(obsv[ind],fcst[ind]))/2)
+  }
 }
 
 
@@ -1312,7 +1504,7 @@ afc <- function(obsv,fcst){
 #' # Results agree besides some numerical precision errors
 #' identical(round(rowSds(a),12),round(apply(a,1,sd),12))
 rowSds <- function(a,na.rm=F){
-	return(sqrt(rowSums((a-rowMeans(a,na.rm=na.rm))**2,na.rm=na.rm)/(rowSums(a/a,na.rm=na.rm)-1)))
+  return(sqrt(rowSums((a-rowMeans(a,na.rm=na.rm))**2,na.rm=na.rm)/(rowSums(a/a,na.rm=na.rm)-1)))
 }
 
 
@@ -1363,34 +1555,34 @@ varno_to_name <- function(varno,short=T,rev=F){
 #' @param cols:   Number of columns in layout
 #' @param layout: A matrix specifying the layout. If present, 'cols' is ignored.
 multiplot <- function(..., plotlist=NULL, cols=1, layout=NULL) {
- 
+  
   # Make a list from the ... arguments and plotlist
   plots <- c(list(...), plotlist)
-
+  
   numPlots = length(plots)
-
+  
   # If layout is NULL, then use 'cols' to determine layout
   if (is.null(layout)) {
     # Make the panel
     # ncol: Number of columns of plots
     # nrow: Number of rows needed, calculated from # of cols
     layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                    ncol = cols, nrow = ceiling(numPlots/cols))
+                     ncol = cols, nrow = ceiling(numPlots/cols))
   }
-
- if (numPlots==1) {
+  
+  if (numPlots==1) {
     print(plots[[1]])
-
+    
   } else {
     # Set up the page
     grid.newpage()
     pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-
+    
     # Make each plot, in the correct location
     for (i in 1:numPlots) {
       # Get the i,j matrix positions of the regions that contain this subplot
       matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-
+      
       print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
                                       layout.pos.col = matchidx$col))
     }
@@ -1416,11 +1608,11 @@ multiplot <- function(..., plotlist=NULL, cols=1, layout=NULL) {
 #' v = c(  0,  10, -10,   0,  10, -10,  10, -10, 0)
 #' windDir(u,v)
 windDir <- function(u, v){
-   radi                               = 1/0.0174532925199433
-   direction                          = atan2(u,v)*radi + 180
-   direction[round(direction,8)==360] = 0
-   direction[u==0 & v==0]             = NA
-   return(direction)
+  radi                               = 1/0.0174532925199433
+  direction                          = atan2(u,v)*radi + 180
+  direction[round(direction,8)==360] = 0
+  direction[u==0 & v==0]             = NA
+  return(direction)
 }
 
 ########################################################################################################################
@@ -1438,7 +1630,7 @@ windDir <- function(u, v){
 #'
 #' @author Felix <felix.fundel@@dwd.de>
 windSpeed <- function(u, v){
-   return(sqrt(u^2+v^2))
+  return(sqrt(u^2+v^2))
 }
 
 ########################################################################################################################
@@ -1456,11 +1648,11 @@ windSpeed <- function(u, v){
 #'
 #' @author Felix <felix.fundel@@dwd.de>
 windBias <- function(ang_pred,ang_obs){
-	wdiff      = ang_pred-ang_obs
-        ind        = abs(wdiff)>180
-	ind        = ind[!is.na(ind)]
-        wdiff[ind] = wdiff[ind]-sign(wdiff[ind])*360
-	return(wdiff)
+  wdiff      = ang_pred-ang_obs
+  ind        = abs(wdiff)>180
+  ind        = ind[!is.na(ind)]
+  wdiff[ind] = wdiff[ind]-sign(wdiff[ind])*360
+  return(wdiff)
 }
 
 ########################################################################################################################
@@ -1488,18 +1680,18 @@ windBias <- function(ang_pred,ang_obs){
 #' DT[,scatterplot(lon,lat,obs,pch=20,cpal=tim.colors(),ncol=20,cex=.5)]
 #' world(add=T,col="gray",fill=T)
 scatterplot <- function (x, y, z, zlim = NULL, ncol = 10, cpal = c("red", "white", "blue"), ...){
-    col.p <- colorRampPalette(cpal)
-    if (is.null(zlim)) {
-        breaks <- seq(min(z, na.rm = T) - 1e-12, max(z, na.rm = T) + 
-            1e-12, len = ncol)
-    }
-    else {
-        breaks <- seq(zlim[1], zlim[2], len = ncol)
-    }
-    sc.col <- col.p(ncol)[as.numeric(cut(z, breaks = breaks))]
-    par(mar = c(4, 4, 3, 8))
-    plot(x, y, col = sc.col, ...)
-    image.plot(legend.only = TRUE, zlim = range(breaks), col = col.p(ncol))
+  col.p <- colorRampPalette(cpal)
+  if (is.null(zlim)) {
+    breaks <- seq(min(z, na.rm = T) - 1e-12, max(z, na.rm = T) + 
+                    1e-12, len = ncol)
+  }
+  else {
+    breaks <- seq(zlim[1], zlim[2], len = ncol)
+  }
+  sc.col <- col.p(ncol)[as.numeric(cut(z, breaks = breaks))]
+  par(mar = c(4, 4, 3, 8))
+  plot(x, y, col = sc.col, ...)
+  image.plot(legend.only = TRUE, zlim = range(breaks), col = col.p(ncol))
 }
 
 
@@ -1517,22 +1709,22 @@ scatterplot <- function (x, y, z, zlim = NULL, ncol = 10, cpal = c("red", "white
 #'
 #' @author Felix <felix.fundel@@dwd.de>
 statid_to_wmoregion<-function(ident){
-		output = rep("ALL",length(ident))
-		# AFRICA
-		output[ident%between%c(60000,69999)] = "AF"
-		#ASIA
-		output[ident%between%c(20000,20099) | ident%between%c(20200,21999)|ident%between%c(23000,25999)  | ident%between%c(28000,32999) | ident%between%c(35000,36999) | ident%between%c(38000,39999) | ident%between%c(40350,48599) | ident%between%c(48800,49999) | ident%between%c(50000,59999)] = "AS"
-		# SOUTH AMERICA
-		output[ident%between%c(80000,88999)] = "SA"
-		#NORTH AND CENTRAL AMERICA
-		output[ident%between%c(70000,79999)] = "NA"
-		# SOUTH-WEST PACIFIC
-		output[ident%between%c(48600,48799) | ident%between%c(90000,98999)] = "SP"
-		# EUROPE
-		output[ident%between%c(1,19999) | ident%between%c(20100,20199) | ident%between%c(22000,22999) | ident%between%c(26000,27999) | ident%between%c(33000,34999) | ident%between%c(37000,37999) | ident%between%c(40000,40349) ] = "EU"
-		# ANTARTICA
-		output[ident%between%c(89000,89999)] = "AA"
-		return(output)
+  output = rep("ALL",length(ident))
+  # AFRICA
+  output[ident%between%c(60000,69999)] = "AF"
+  #ASIA
+  output[ident%between%c(20000,20099) | ident%between%c(20200,21999)|ident%between%c(23000,25999)  | ident%between%c(28000,32999) | ident%between%c(35000,36999) | ident%between%c(38000,39999) | ident%between%c(40350,48599) | ident%between%c(48800,49999) | ident%between%c(50000,59999)] = "AS"
+  # SOUTH AMERICA
+  output[ident%between%c(80000,88999)] = "SA"
+  #NORTH AND CENTRAL AMERICA
+  output[ident%between%c(70000,79999)] = "NA"
+  # SOUTH-WEST PACIFIC
+  output[ident%between%c(48600,48799) | ident%between%c(90000,98999)] = "SP"
+  # EUROPE
+  output[ident%between%c(1,19999) | ident%between%c(20100,20199) | ident%between%c(22000,22999) | ident%between%c(26000,27999) | ident%between%c(33000,34999) | ident%between%c(37000,37999) | ident%between%c(40000,40349) ] = "EU"
+  # ANTARTICA
+  output[ident%between%c(89000,89999)] = "AA"
+  return(output)
 }
 
 
@@ -1578,7 +1770,7 @@ agg_det_scores <- function(SCORENAME=NULL,RMSE=NULL,ME=NULL,MSE=NULL,SD=NULL,MAE
   else if (SCORENAME=="SD" & !is.null(MSE) & !is.null(ME) & !is.null(LEN)){  SCORE_agg =  sqrt(sum(LEN*MSE,na.rm=T)/sum(LEN,na.rm=T) - (sum(LEN*ME,na.rm=T)/sum(LEN,na.rm=T))^2)}
   else{warning("MISSING RIGHT INPUT");return()}
   return(SCORE_agg)
-
+  
 }
 
 
@@ -1599,13 +1791,13 @@ agg_det_scores <- function(SCORENAME=NULL,RMSE=NULL,ME=NULL,MSE=NULL,SD=NULL,MAE
 #' filenames  = system("ls ~/examplesRfdbk/icon/synop/*",intern=T)
 #' fdbk_refdate(filenames)
 fdbk_refdate <- function(filenames){
-	ref_date = rep(NA,length(filenames))
-	for (i in 1:length(filenames)){
-		f           = open.nc(filenames[i])
-		ref_date[i] = att.get.nc(f, "NC_GLOBAL", "verification_ref_date")*10000+att.get.nc(f, "NC_GLOBAL", "verification_ref_time")
-		close.nc(f)
-	}
-	return(ref_date)
+  ref_date = rep(NA,length(filenames))
+  for (i in 1:length(filenames)){
+    f           = open.nc(filenames[i])
+    ref_date[i] = att.get.nc(f, "NC_GLOBAL", "verification_ref_date")*10000+att.get.nc(f, "NC_GLOBAL", "verification_ref_time")
+    close.nc(f)
+  }
+  return(ref_date)
 }
 
 
@@ -1637,25 +1829,24 @@ fdbk_refdate <- function(filenames){
 #' DT = fdbk_dt_add_obs_ini(DT,fileNames,cond)
 #' na.omit(DT[varno==3,list(TCC=cor(veri_data-obs_ini,obs-obs_ini,use="pair")),by=c("varno","veri_forecast_time")])[,plot(veri_forecast_time/2400,TCC,type="b")]
 fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
-	refDates   = fdbk_refdate(fileNames)
-	fillFiles  = fileNames[refDates%in%unique(DT$veri_initial_date)]
-	if (length(fillFiles)>0){
-		iniDates   = refDates[refDates%in%unique(DT$veri_initial_date)]
-		XX = c()
-		for (i in 1:length(fillFiles)){
-			DTFILL = unique(fdbk_dt_multi_large(fillFiles[i], condition = cond, vars = c("obs",vars), cores = 1))
-			setnames(DTFILL,"obs","obs_ini")
-			DTFILL[,veri_initial_date:=as.character(iniDates[i])]
-			DTFILL = DTFILL[ident!=0]
-			XX = .rbind.data.table(XX,DTFILL)
-			rm(DTFILL)
-		}
-		keep = which(!duplicated(XX[,-"obs_ini",with=F]))
-		DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
-	}else{
-		DT[,obs_ini:=NA]
-	}
-	return(DT)
-
+  refDates   = fdbk_refdate(fileNames)
+  fillFiles  = fileNames[refDates%in%unique(DT$veri_initial_date)]
+  if (length(fillFiles)>0){
+    iniDates   = refDates[refDates%in%unique(DT$veri_initial_date)]
+    XX = c()
+    for (i in 1:length(fillFiles)){
+      DTFILL = unique(fdbk_dt_multi_large(fillFiles[i], condition = cond, vars = c("obs",vars), cores = 1))
+      setnames(DTFILL,"obs","obs_ini")
+      DTFILL[,veri_initial_date:=as.character(iniDates[i])]
+      DTFILL = DTFILL[ident!=0]
+      XX = .rbind.data.table(XX,DTFILL)
+      rm(DTFILL)
+    }
+    keep = which(!duplicated(XX[,-"obs_ini",with=F]))
+    DT   = merge(DT,XX[keep],by=c("veri_initial_date",vars), all.x = T)
+  }else{
+    DT[,obs_ini:=NA]
+  }
+  return(DT)
+  
 }
-
