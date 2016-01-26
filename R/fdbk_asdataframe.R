@@ -1158,9 +1158,11 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 
 #' Bin a data.table column around user defined levels and replace it with the levels value.
 #' 
-#' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin instead of the bins limits. 
-#' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in the sense that 
-#' fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in fdbk_dt_binning_level. This function allows to have non-equally spaced 
+#' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin 
+#' instead of the bins limits. 
+#' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in 
+#' the sense that fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in 
+#' fdbk_dt_binning_level. This function allows to have non-equally spaced 
 #' levels without gaps between the bins, so that the level is not always at the center of the bin. 
 #' @param  DT data.table
 #' @param  varToBin variable that should be binned (and will be replaced by the binned version)
@@ -1191,14 +1193,18 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #' p
 fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
   bins = getVarToBin(DT,varToBin) 
+  levels = sort(levels,T) # Sort levels in decresaing order in case levels are not sorted 
   dp = diff(levels)/2
-  binUpper = c(levels[1]-dp[1],levels[1:length(levels)-1]+dp) 
-  binLower = c(levels[1:length(levels)-1]+dp,levels[length(levels)]+dp[length(dp)])
+  binLower <- levels + dp[c(seq(along=dp), length(dp))]
+  binUpper <- levels - dp[c(1, seq(along=dp))]
   
   for (i in 1:length(binLower)){
     bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
   }
+  
   DT[,varToBin] = bins
+  
+  
   return(DT)
 }
   
@@ -1329,10 +1335,10 @@ getVarToBin <- function(DT,varToBin) {
 
 fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels, varno="varno"){
   
-  #OneSounding = data.frame(,nrow=1,ncol=dim(DT)[2])
-  ncol = dim(DT)[2]
-  n = dim(DT)[1]
-  OneSounding = as.data.frame(matrix(,nrow=1,ncol)) # vector to store one single sounding at a time and interpolate it
+  #OneSounding = data.frame(,nrow=1,Ncol=dim(DT)[2])
+  Ncol = ncol(DT)
+  n = nrow(DT)
+  OneSounding = as.data.frame(matrix(,nrow=1,Ncol)) # vector to store one single sounding at a time and interpolate it
   Colnames = colnames(DT)
   colnames(OneSounding) = Colnames
   OneSounding[1,] = DT[1,] # Store the first row of DT in the first row of OneSounding
@@ -1341,7 +1347,8 @@ fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter
   for (i in 2:n){
     
     soundingDone = TRUE # Boolean if i correspond to the end of a souding 
-    if (DT$ident[i]==DT$ident[i-1] & DT$veri_forecast_time[i]==DT$veri_forecast_time[i-1] & DT$veri_initial_date[i]==DT$veri_initial_date[i-1] & DT$time[i]==DT$time[i-1]){
+    checknames <- c("ident", "veri_forecast_time", "veri_initial_date", "time")
+    if (all(DT[i,checknames] == DT[i-1,checknames])){
       soundingDone = FALSE # if previous row in DT is the same sounding as the current row, sounding is not done
       k = k+1
       OneSounding[k,] = DT[i,] # Store ther current row of DT in the current sounding
@@ -1369,12 +1376,12 @@ fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter
           inter = as.data.frame(inter)
           
           colnames(inter) = varToInter # Give the colunames to inter
-          DTT = data.frame(inter,OneVarno[,3:ncol][1:length(interX),1:(ncol-2)])
+          DTT = data.frame(inter,OneVarno[,3:Ncol][1:length(interX),1:(Ncol-2)])
           DTT[[levelToInter]] = interX
           newDT = .rbind.data.table(newDT,DTT) # Bind DTT and newDT
         }  
       }
-      OneSounding = as.data.frame(matrix(,nrow=200,ncol)) # re-allocate OneSounding for the next sounding 
+      OneSounding = as.data.frame(matrix(,nrow=200,Ncol)) # re-allocate OneSounding for the next sounding 
       colnames(OneSounding) = Colnames
       OneSounding[1,] = DT[i,] 
       k = 1 # Restart the level counter for the next sounding 
