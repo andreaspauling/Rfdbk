@@ -1156,6 +1156,64 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 ########################################################################################################################
 
 
+#' Bin a data.table column around user defined levels and replace it with the levels value.
+#' 
+#' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin 
+#' instead of the bins limits. 
+#' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in 
+#' the sense that fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in 
+#' fdbk_dt_binning_level. This function allows to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@gmail.com>
+#'
+#' @seealso \code{\link{cut}}
+#'
+#' @examples 
+#' #plot scores accross binned levels
+#' require(ggplot2)
+#' fnames       = "~/examplesRfdbk/icon/temp/verTEMP.2014120112"
+#' cond        = list(obs="!is.na(obs)",varno="varno%in%c(2,3,4,29)")
+#' columnnames = c("obs","veri_data","varno","state","level")
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' levels = c(100000,92500,85000,70000,60000,50000,40000,30000)
+#' DT = fdbk_dt_binning_level(DT,"level",levels)
+#' DT$varno    = varno_to_name(DT$varno)
+#' strat       = c("varno","level")
+#' scores      = fdbk_dt_verif_continuous(DT,strat)
+#' setkey(scores,scorename,varno,level)
+#' scores      = scores[!is.na(scores),]
+#' p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
+#'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
+#'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
+#' p
+fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
+  bins = getVarToBin(DT,varToBin) 
+  levels = sort(levels,T) # Sort levels in decresaing order in case levels are not sorted 
+  dp = diff(levels)/2
+  binLower <- levels + dp[c(seq(along=dp), length(dp))]
+  binUpper <- levels - dp[c(1, seq(along=dp))]
+  
+  for (i in 1:length(binLower)){
+    bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
+  }
+  
+  DT[,varToBin] = bins
+  
+  
+  return(DT)
+}
+  
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 #' Bin a data.table column into user defined bins and replace it with the bin center value.
 #' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
 #' @param  DT data.table
@@ -1189,14 +1247,148 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
 fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
-	bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
-	for (i in 1:length(binLower)){
-		bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
-	}
+       bins = getVarToBin(DT,varToBin) 
+       for (i in 1:length(binLower)){
+               bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
+       }
         DT[,varToBin] = bins
-	return(DT)
+      return(DT)
 }
 
+###################
+getVarToBin <- function(DT,varToBin) {
+  bins = rep(NA,length(DT[,varToBin,with=F][[1]]))
+  return(bins)
+}
+
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+#' Bin a data.table column into user defined bins and replace it with the bin center value.
+#' If breaks can be provided (e.g. no gaps between bins) try to use 'cut' instead.
+#' @param  DT data.table
+#' @param  varToBin variable that should be binned (and will be replaced by the binned version)
+#' @param  mode that will be used to defined the bin. Choices are "bin" or "level". In the first case the limtis of the bins have to be explicitly 
+#' given in two vectors. The name given to the corresponding levels of the bin will be the mean of the lower and upper limit of the bin. In the second case a vector 
+#' specifying the levels has to be given. The limits of the bins will be calculated by taking the mean between neighbouring levels. The two methods differ in the sense that 
+#' the "bin" mode allow to have gaps between the bins, whereas the bins will be continuous in "level" mode. The "level" mode allow to have non-equally spaced 
+#' levels without gaps between the bins, so that the level is not always at the center of the bin. 
+#' @param  binLower number/vector lower bins limits
+#' @param  binUpper number/vector upper bins limits
+#' @param  levels number/vector of levels on which the bins will be defined
+#' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
+#
+#' @author Josue <josue.gehring@@meteoswiss.ch>
+#' 
+#' @example
+#' # Example of linear interpolation based on an international standard atmosphere profile
+#' require(ggplot2)
+#' require(Rfdbk)
+#' require(reshape2)
+#' a1 = -6.5 # K/km standard atmosphere lapse rate, represents observations
+#' a2 = -9 # K/km lapse rate obtained from a fictive model output
+#' b1 = 288.15 # K standard atmosphere surface temperature
+#' b2 = 295 # K surface temperature obtained from a fictive model output
+#' Ho = 8.4 # km scale height
+#' po = 1013.25 # standard atmosphere pressure in hPa
+#' p = seq(250,1000,10) # pressure until the tropopause
+#' T1 = a1*Ho*log(po/p)+b1 # Standard amtmosphere temperature profile
+#' T2 =  a2*Ho*log(po/p)+b2 # Model output temperature profile 
+#' Bias = T2-T1 # Bias = forecast - observation 
+#' 
+#' # Build a data table in feedback files format
+#' obs = T1
+#' veri_data = T2
+#' veri_forecast_time = 24
+#' veri_initial_date = 2015110900
+#' time = -720
+#' lat = 46.812
+#' lon = 6.943
+#' varno = 2
+#' veri_model = "COSMO"
+#' plevel = p
+#' ident = 6610
+#' levels = c(1000, 975, 950, 925, 900, 875, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250) # Levels on which to interpolate
+#' DT = data.frame(obs,veri_data,veri_forecast_time,veri_initial_date,time,lat,lon,varno,veri_model,plevel,ident)
+#' DT           = fdbk_dt_interpolate(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels) # interpolate DT
+#'
+#' data1 = melt(data.frame(T1,p),id="T1") # Data for the standard atmosphere temperature profile
+#' data2 = melt(data.frame(T2=DT$obs,DT$plevel),id="T2") # Interpolation of data1 
+#' 
+#' 
+#' plot = ggplot() + geom_point(data=data1,aes(x=T1,y=value,colour=variable)) + geom_point(data=data2,aes(x=T2,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T [K]") + ylab("pressure [hPa]")+  scale_colour_manual(name="Temperature",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot) # plot of the Standard atmosphere profile and its interpolation 
+#' 
+#' allscores = fdbk_dt_verif_continuous(DT,strat=c("varno","veri_model","plevel") ) # Data table with scores
+#' 
+#' data3 = melt(data.frame(Bias,p),id="Bias") # Bias calculated directly from the standard atmosphere and model output profiles
+#' ME = allscores[allscores$scorename=="ME"]$scores # scores calculated with fdbk_dt_verif_continuous on interpolation levels
+#' ME_levels = allscores[allscores$scorename=="ME"]$plevel # interpolation levels
+#' data4 = melt(data.frame(ME,ME_levels),id="ME")
+#' plot2 = ggplot() + geom_point(data=data3,aes(x=Bias,y=value,colour=variable)) + geom_point(data=data4,aes(x=ME,y=value,colour=variable))+scale_y_reverse()+
+#'   xlab("T bias [K]") + ylab("pressure [hPa]")+scale_colour_manual(name="Bias",values=c("red","blue"),labels=c("Interpolation","Standard atmosphere"))+theme(legend.position = "top")
+#' print(plot2) # plot of the bias calculated directly from the profiles and the bias from the interpolation
+
+fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels, varno="varno"){
+  
+  #OneSounding = data.frame(,nrow=1,Ncol=dim(DT)[2])
+  Ncol = ncol(DT)
+  n = nrow(DT)
+  OneSounding = as.data.frame(matrix(,nrow=1,Ncol)) # vector to store one single sounding at a time and interpolate it
+  Colnames = colnames(DT)
+  colnames(OneSounding) = Colnames
+  OneSounding[1,] = DT[1,] # Store the first row of DT in the first row of OneSounding
+  newDT = c()
+  k = 1
+  for (i in 2:n){
+    
+    soundingDone = TRUE # Boolean if i correspond to the end of a souding 
+    checknames <- c("ident", "veri_forecast_time", "veri_initial_date", "time")
+    if (all(DT[i,checknames] == DT[i-1,checknames])){
+      soundingDone = FALSE # if previous row in DT is the same sounding as the current row, sounding is not done
+      k = k+1
+      OneSounding[k,] = DT[i,] # Store ther current row of DT in the current sounding
+    } 
+    if (soundingDone==TRUE | i==n){ # if the end of a sounding or the end of DT is reached, interpolate the current sounding and store it DTT
+      OneSounding = na.omit(OneSounding)
+      ik = unique(OneSounding[[varno]]) # Vector of all the different variables measured in one sounding 
+      ds3 = as.numeric(OneSounding[[varno]])
+      for (k in ik){
+        kk = ds3 == k 
+        OneVarno = OneSounding[kk,] # Vector of one souding for just one variable
+        x = log(OneVarno[[levelToInter]])  # Take the variable levelToInter
+        
+        # interX is the range of interLevels that is contained in the sounding
+        interX = interLevels[log(interLevels)<=max(x) & log(interLevels)>=min(x)]
+        if (length(x) > 2 & length(interX)>2) {
+          inter = matrix(,nrow=length(interX),ncol=length(varToInter))          
+          for (l in 1:length(varToInter)){ # Interpolate for all variables
+            
+            y = OneVarno[[varToInter[l]]] # Take the values to interpolate
+            inter[,l] = approx(x,y,log(interX))$y # Do the Interpolation
+          }
+          
+          
+          inter = as.data.frame(inter)
+          
+          colnames(inter) = varToInter # Give the colunames to inter
+          DTT = data.frame(inter,OneVarno[,3:Ncol][1:length(interX),1:(Ncol-2)])
+          DTT[[levelToInter]] = interX
+          newDT = .rbind.data.table(newDT,DTT) # Bind DTT and newDT
+        }  
+      }
+      OneSounding = as.data.frame(matrix(,nrow=200,Ncol)) # re-allocate OneSounding for the next sounding 
+      colnames(OneSounding) = Colnames
+      OneSounding[1,] = DT[i,] 
+      k = 1 # Restart the level counter for the next sounding 
+    }
+  }
+  return(newDT)
+} 
 
 ########################################################################################################################
 ########################################################################################################################
@@ -1658,4 +1850,3 @@ fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
 	return(DT)
 
 }
-
