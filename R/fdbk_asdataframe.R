@@ -1158,7 +1158,6 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 
 #' Bin a data.table column around user defined levels and replace it with the levels value.
 #' 
-<<<<<<< HEAD
 #' @description Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin 
 #' instead of the bins limits. 
 #' The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in 
@@ -1248,7 +1247,6 @@ fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
 fdbk_dt_binning <- function(DT,varToBin="level",binLower,binUpper){
-<<<<<<< HEAD
   bins = getVarToBin(DT,varToBin) 
   for (i in 1:length(binLower)){
     bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = (binLower[i]+binUpper[i])/2
@@ -1285,7 +1283,6 @@ getVarToBin <- function(DT,varToBin) {
 #
 #' @author Josue <josue.gehring@@meteoswiss.ch>
 #' 
-<<<<<<< HEAD
 #' @examples
 #' # Example of linear interpolation based on an international standard atmosphere profile
 #' require(ggplot2)
@@ -1338,8 +1335,6 @@ getVarToBin <- function(DT,varToBin) {
 
 fdbk_dt_interpolate <- function(DT,varToInter=c("obs","veri_data"), levelToInter = "plevel", interLevels = levels, varno="varno"){
   
-<<<<<<< HEAD
-  #OneSounding = data.frame(,nrow=1,ncol=dim(DT)[2])
 
   Ncol = ncol(DT)
   n = nrow(DT)
@@ -1834,7 +1829,6 @@ fdbk_refdate <- function(filenames){
 #' DT = fdbk_dt_add_obs_ini(DT,fileNames,cond)
 #' na.omit(DT[varno==3,list(TCC=cor(veri_data-obs_ini,obs-obs_ini,use="pair")),by=c("varno","veri_forecast_time")])[,plot(veri_forecast_time/2400,TCC,type="b")]
 fdbk_dt_add_obs_ini <- function(DT,fileNames,vars=c("ident","varno"),cond=""){
-<<<<<<< HEAD
   refDates   = fdbk_refdate(fileNames)
   fillFiles  = fileNames[refDates%in%unique(DT$veri_initial_date)]
   if (length(fillFiles)>0){
