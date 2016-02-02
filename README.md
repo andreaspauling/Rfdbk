@@ -14,7 +14,10 @@ Download example feedback files (1.1Gb) from: <br/>
 https://drive.google.com/file/d/0BwjoGSRjc_8NWVBMQXpNY0FpWmM/view?usp=sharing <br/>
 and unpack to your $HOME directory.
 
-<br/><br/>
+## Version History
+<b>Version 1.1.1</b> <br/>
+Additional interpolation/binning functions by Josué Gehring (MeteoSwiss)
+
 
 <b>Version 1.0.9</b> <br/>
 The first version commited to github, already underwent some revisions.
