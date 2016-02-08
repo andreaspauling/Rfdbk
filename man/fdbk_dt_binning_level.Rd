@@ -4,7 +4,7 @@
 \alias{fdbk_dt_binning_level}
 \title{Bin a data.table column around user defined levels and replace it with the levels value.}
 \usage{
-fdbk_dt_binning_level(DT, varToBin = "level", levels)
+fdbk_dt_binning_level(DT, varToBin = "level", levels, includeAll = FALSE)
 }
 \arguments{
 \item{DT}{data.table}
@@ -12,17 +12,21 @@ fdbk_dt_binning_level(DT, varToBin = "level", levels)
 \item{varToBin}{variable that should be binned (and will be replaced by the binned version)}
 
 \item{levels}{number/vector of levels on which the bins will be defined}
+
+\item{Logical}{to include data that are out of the bins defined by levels. If set to FALSE (default), data that falls out
+of the bins are dicarded. If set to true, the numerically lower and upper limits will be set to -Inf and +Inf, respectively.
+This allows to keep data that falls out of the bins.}
 }
 \value{
 data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 }
 \description{
-Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to
-bin instead of the bins limits.
-The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ
-in the sense that fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in
-fdbk_dt_binning_level. This function allows to have non-equally spaced levels without gaps between the bins, so that
-the level is not always at the center of the bin.
+Other way to perform a binning like in function fdbk_dt_binning but by defining levels around which to bin
+instead of the bins limits.
+The limits of the bins will be calculated by taking the mean between neighbouring levels. The two functions differ in
+the sense that fdbk_dt_binning allow to have gaps between the bins, whereas the bins will be continuous in
+fdbk_dt_binning_level. This function allows to have non-equally spaced
+levels without gaps between the bins, so that the level is not always at the center of the bin.
 }
 \examples{
 #plot scores accross binned levels

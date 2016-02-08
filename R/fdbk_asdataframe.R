@@ -1167,6 +1167,9 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #' @param  DT data.table
 #' @param  varToBin variable that should be binned (and will be replaced by the binned version)
 #' @param  levels number/vector of levels on which the bins will be defined
+#' @param  Logical to include data that are out of the bins defined by levels. If set to FALSE (default), data that falls out 
+#' of the bins are dicarded. If set to true, the numerically lower and upper limits will be set to -Inf and +Inf, respectively. 
+#' This allows to keep data that falls out of the bins.
 #' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 #
 #' @author Josue <josue.gehring@@gmail.com>
@@ -1191,19 +1194,22 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
-fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
+fdbk_dt_binning_level <- function(DT,varToBin="level",levels,includeAll=FALSE){
   bins = getVarToBin(DT,varToBin) 
   levels = sort(levels,T) # Sort levels in decresaing order in case levels are not sorted 
   dp = diff(levels)/2
   binLower <- levels + dp[c(seq(along=dp), length(dp))]
   binUpper <- levels - dp[c(1, seq(along=dp))]
   
+  if (includeAll){
+    binLower[length(binLower)] = -Inf
+    binUpper[1] = Inf
+  }
   for (i in 1:length(binLower)){
     bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
   }
   
   DT[,varToBin] = bins
-  
   
   return(DT)
 }
