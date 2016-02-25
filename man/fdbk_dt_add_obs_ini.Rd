@@ -4,12 +4,14 @@
 \title{Update a feedback file data.table with observations valid at initialization
 (helpful for calculation of tendency correlations or persistence scores)}
 \usage{
-fdbk_dt_add_obs_ini(DT, fileNames, vars = c("ident", "varno"), cond = "")
+fdbk_dt_add_obs_ini(DT, fnamepast, cond = cond)
 }
 \arguments{
-\item{DT}{data.table with feedback file content, minimum requires "veri_forecast_time","obs","statid","level","varno","lon","lat" and "veri_initial_date" as YYYYmmddHHMM numeric}
+\item{DT}{data.table with feedback file content, minimum requires "obs","level","varno","lon","lat" and "veri_initial_date" as YYYYmmddHHMM numeric and a column called "lonlat":=paste0(lon,lat)}
 
-\item{fileNames}{vector of filenames (including path) of feedback files that should be valid at times needed to fill DT (e.g. files of past 7 days to fill DT for a model of 7 day forecast range)}
+\item{fnamepast}{vector of filenames (including path) of feedback files that should be valid at times needed to fill DT (e.g. files of past 7 days to fill DT for a model of 7 day forecast range)}
+
+\item{cond}{list of conditions used for loading DT}
 }
 \value{
 DT with an additional columns "obs_ini"
@@ -19,16 +21,17 @@ Update a feedback file data.table with observations valid at initialization
 (helpful for calculation of tendency correlations or persistence scores)
 }
 \examples{
-# obsolete
 fdbkDir   = "~/examplesRfdbk/icon/synop"
 fileName  = tail(dir(fdbkDir,full.names=T),1)
-refDate   =  fdbk_refdate(fileName)
-vars      = c("obs","veri_data","veri_forecast_time","statid","level","varno","lon","lat","obs_id","veri_initial_date")
-cond      = list(veri_forecast_time="veri_forecast_time>300")
+vars      = c("obs","veri_data","veri_forecast_time","level","varno","lon","lat","veri_initial_date")
+cond      = ""
 DT        = fdbk_dt_multi_large(fileName, condition=cond, vars=vars, cores=1)
-fileNames = tail(dir(fdbkDir,full.names=T),50)
+DT[,lonlat:=paste0(lon,lat)]
+fileNames = tail(dir(fdbkDir,full.names=T),10)
 DT = fdbk_dt_add_obs_ini(DT,fileNames,cond)
-na.omit(DT[varno==3,list(TCC=cor(veri_data-obs_ini,obs-obs_ini,use="pair")),by=c("varno","veri_forecast_time")])[,plot(veri_forecast_time/2400,TCC,type="b")]
+DT[,lonlat:=NULL]
+Plot correlation between observations for different lead-times
+na.omit(DT[,list(cor=cor(obs,obs_ini,use="pairwise.complete.obs")),by=c("veri_forecast_time","varno")])[,ggplot(.SD,aes(x=veri_forecast_time,y=cor))+geom_line()+facet_wrap(~varno,scales="free")]
 }
 \author{
 Felix <felix.fundel@dwd.de>
