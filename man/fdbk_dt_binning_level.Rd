@@ -47,7 +47,7 @@ p =  ggplot(scores,aes(x=scores,y=level,group=interaction(varno,scorename)))+
 p
 }
 \author{
-Josue <josue.gehring@gmail.com>
+Felix <felix.fundel@dwd.de>
 }
 \seealso{
 \code{\link{cut}}
