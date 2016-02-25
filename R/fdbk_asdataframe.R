@@ -1,3 +1,105 @@
+#' Function to sort a given date to meteorological seasons (DJF, MAM, JJA, SON).
+#' Useful to stratify scores by season in order to plot scores for different seasons
+#' and compare them
+#' @param a date in format yyyymmdd (at least). hours and/or minutes and/or seconds can be
+#' specified in format yyyymmddHHMMSS. Can be given as a string or numeric.
+#'
+#' @return a string corresponding to the four seasons (DJF, MAM, JJA, SON)
+#'
+#' @author Felix <felix.fundel@@dwd.de>
+#' @examples
+#' #EXAMPLE 1 simple examples with one date
+#' asSeason("20150201") returns "DJF"
+#' asSeason(20150201) also returns "DJF"
+#' asSeason("201502011234") also returns "DJF"
+#' asSeason("151201") returns an error (format yymmdd not accepted)
+#' #EXAMPLE 2 Example of how to use this function to stratify scores by season
+#' and show a plot of comparison fot different seasons
+#'
+#' require(ggplot2)
+#' fnames       = "/Users/josuegehring/Desktop/verTEMP.2014120112"
+#' cond        = list(obs="!is.na(obs)",varno="varno%in%c(2,3,4,29)",ident="ident%in%c(6610)",varno="varno%in%c(2)")
+#' columnnames = c("obs","veri_data","varno","state","level","veri_initial_date","ident")
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' levels = c(100000,92500,85000,70000,60000,50000,40000,30000)
+#' DT = fdbk_dt_binning_level(DT,"level",levels,includeAll=TRUE)
+#' DT$varno    = varno_to_name(DT$varno)
+#' DT$season = as.character(lapply(DT$veri_initial_date, asSeason))
+#' DT = na.omit(DT)
+#' strat       = c("season","level")
+#' scores      = fdbk_dt_verif_continuous(DT,strat)
+#' scores      = scores[!is.na(scores),]
+#' ii = scores$scorename=="ME"
+#' scores = scores[ii]
+#' data = data.frame(scores$level,scores$scores,scores$season)
+#' colnames(data) = c("level","scores","season")
+#' data = data[order(data$level),]
+#' p =  ggplot(data,aes(x=scores,y=level,group=season,colour=season))+
+#'   geom_point()+geom_path() + 
+#'   theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
+#' print(p)
+#' 
+asSeason <- function(x) {
+  date = as.Date(as.character(x), format = "%Y%m%d")
+  m = as.numeric(format(date, "%m"))
+  
+  if (m >= 12 | m <= 2) {
+    return("DJF")
+  }
+  else if (m >= 3 & m <= 5) {
+    return("MAM")
+  }
+  else if (m >= 6 & m <= 8) {
+    return("JJA")
+  }
+  else if (m >= 9 & m <= 11) {
+    return("SON")
+  }
+  else {
+    return("NA")
+  }
+}
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+#' Function to convert time in format hhmm to decimal hours. 
+#' Useful to calculate a derived time from two time informations
+#' @param time in format hhmm. Can be a string or numeric
+#' @return time in decimal hours
+#'
+#' @author Felix <felix.fundel@@dwd.de>
+#' @examples
+#' #EXAMPLE 1 simple examples
+#' hhmm2hour(0145) returns 1.75
+#' hhmm2hour(145) returns 1.75
+#' hhmm2hour("145") returns 1.75
+#' 
+#' #EXAMPLE 2 calculate leadtime from veri_forecast_time and time
+#' require(ggplot2)
+#' fnames       = "/Users/josuegehring/Desktop/verTEMP.2014120112"
+#' cond        = list(obs="!is.na(obs)",varno="varno%in%c(2,3,4,29)",ident="ident%in%c(6610)",varno="varno%in%c(2)")
+#' columnnames = c("obs","veri_data","varno","state","level","veri_forecast_time","time","ident")
+#' DT          = fdbk_dt_multi_large(fnames,cond,columnnames,1)
+#' leadtime = hhmm2hour(DT$veri_forecast_time) + DT$time/60
+#' DT[,"leadtime"] = leadtime
+#' 
+hhmm2hour = function(x){
+  x = as.numeric(x)
+  hours <- trunc(x / 100)
+  mins <- 100 * (x/100 - hours)
+  return(hours + mins/60)
+}
+
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
 #' Function to load one or many fdbk Files and transform them to a data.table.
 #' Faster than fdbk_dt_multi and able to handle very large files, however,
 #' be as restrictive as possible, use the cond/columnnames argument select only the data you need for your problem.
@@ -1176,9 +1278,12 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #' @param  DT data.table
 #' @param  varToBin variable that should be binned (and will be replaced by the binned version)
 #' @param  levels number/vector of levels on which the bins will be defined
+#' @param  Logical to include data that are out of the bins defined by levels. If set to FALSE (default), data that falls out 
+#' of the bins are dicarded. If set to true, the numerically lower and upper limits will be set to -Inf and +Inf, respectively. 
+#' This allows to keep data that falls out of the bins.
 #' @return data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
 #
-#' @author Josue <josue.gehring@@gmail.com>
+#' @author Felix <felix.fundel@@dwd.de>
 #'
 #' @seealso \code{\link{cut}}
 #'
@@ -1200,19 +1305,22 @@ comparableRows <- function(DT,splitCol,splitVal,compareBy){
 #'  geom_path() + facet_wrap(~varno~scorename,scales="free_x",ncol = 6)+
 #'  theme_bw()+theme(axis.text.x  = element_text(angle=70,hjust = 1))+scale_y_reverse()
 #' p
-fdbk_dt_binning_level <- function(DT,varToBin="level",levels){
+fdbk_dt_binning_level <- function(DT,varToBin="level",levels,includeAll=FALSE){
   bins = getVarToBin(DT,varToBin) 
   levels = sort(levels,T) # Sort levels in decresaing order in case levels are not sorted 
   dp = diff(levels)/2
   binLower <- levels + dp[c(seq(along=dp), length(dp))]
   binUpper <- levels - dp[c(1, seq(along=dp))]
   
+  if (includeAll){
+    binLower[length(binLower)] = -Inf
+    binUpper[1] = Inf
+  }
   for (i in 1:length(binLower)){
     bins[DT[,varToBin,with=F]>=binLower[i] & DT[,varToBin,with=F]<binUpper[i] ] = levels[i]
   }
   
   DT[,varToBin] = bins
-  
   
   return(DT)
 }

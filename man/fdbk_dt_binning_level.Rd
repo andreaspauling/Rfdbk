@@ -3,7 +3,7 @@
 \alias{fdbk_dt_binning_level}
 \title{Bin a data.table column around user defined levels and replace it with the levels value.}
 \usage{
-fdbk_dt_binning_level(DT, varToBin = "level", levels)
+fdbk_dt_binning_level(DT, varToBin = "level", levels, includeAll = FALSE)
 }
 \arguments{
 \item{DT}{data.table}
@@ -11,6 +11,10 @@ fdbk_dt_binning_level(DT, varToBin = "level", levels)
 \item{varToBin}{variable that should be binned (and will be replaced by the binned version)}
 
 \item{levels}{number/vector of levels on which the bins will be defined}
+
+\item{Logical}{to include data that are out of the bins defined by levels. If set to FALSE (default), data that falls out
+of the bins are dicarded. If set to true, the numerically lower and upper limits will be set to -Inf and +Inf, respectively.
+This allows to keep data that falls out of the bins.}
 }
 \value{
 data.table with varToBin replaced by factorized mid-bin values  (NA if variable falls in none of the bins)
