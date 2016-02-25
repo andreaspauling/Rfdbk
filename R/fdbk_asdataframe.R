@@ -164,12 +164,21 @@ read_fdbk_large <- function(fname,condition="",vars=""){
       warning(paste(filt_cond,"has no match, returning NULL"))
       return(NULL)
     }
-    for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_veri)))){
-      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
+    #for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_veri)))){
+    #  fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
+    #}
+    #for (i in which(unlist(lapply(lapply(dimensions,"[",2),"==",d_veri)))){
+    #  fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
+    #}
+    for (i in names(dimensions)[names(dimensions)%in%names_veri]){
+      if(length(dim(fdbk$DATA[[i]]$values))==1){
+        fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
+      }else{
+        fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
+      }
     }
-    for (i in which(unlist(lapply(lapply(dimensions,"[",2),"==",d_veri)))){
-      fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
-    }
+
+
     fdbk$DIMENSIONS$d_veri$length = sum(filt) # correct fdbk$DIMENSIONS entry
   } 
   
