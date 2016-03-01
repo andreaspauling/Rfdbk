@@ -1947,33 +1947,39 @@ fdbk_refdate <- function(filenames){
 #' DT[,lonlat:=NULL]
 #' Plot correlation between observations for different lead-times
 #' na.omit(DT[,list(cor=cor(obs,obs_ini,use="pairwise.complete.obs")),by=c("veri_forecast_time","varno")])[,ggplot(.SD,aes(x=veri_forecast_time,y=cor))+geom_line()+facet_wrap(~varno,scales="free")]
-fdbk_dt_add_obs_ini <- function(DT,fnamepast,cond=cond){
-
-	refDates  = fdbk_refdate(fnamepast)
-	fillFiles = fnamepast[refDates %in% unique(DT$veri_initial_date)]
-	if (length(fillFiles) > 0) {
-		iniDates = refDates[refDates %in% unique(DT$veri_initial_date)]
-		XX = c()
-		vars = c("obs","varno","level","lat","lon")
-		for (i in 1:length(fillFiles)) {
-			DTFILL = unique(fdbk_dt_multi_large(fillFiles[i],condition = cond, vars = vars, cores = 1))
-			setnames(DTFILL, "obs", "obs_ini")
-			DTFILL[,lonlat:=paste0(lon,lat)]
-			DTFILL[,lon:=NULL]
-			DTFILL[,lat:=NULL]
-			DTFILL[, veri_initial_date:=as.character(iniDates[i])]
-			XX = .rbind.data.table(XX, DTFILL)
-			rm(DTFILL)
-		}
-		keep = which(!duplicated(XX[, -c("obs_ini"), with = F]))
-		XX = XX[keep]
-		DT = merge(DT, XX, by = c("veri_initial_date","varno","level","lonlat"), all.x = T)
+fdbk_dt_add_obs_ini<-function (DT, fnamepast, cond = cond) 
+{
+    refDates = fdbk_refdate(fnamepast)
+    fillFiles = fnamepast[refDates %in% unique(DT$veri_initial_date)]
+    if (length(fillFiles) > 0) {
+        iniDates = refDates[refDates %in% unique(DT$veri_initial_date)]
+        XX = c()
+        vars = names(DT)[names(DT)%in%c("obs", "varno", "lat", "lon","level")]
+        for (i in 1:length(fillFiles)) {
+            DTFILL = unique(fdbk_dt_multi_large(fillFiles[i], 
+                condition = cond, vars = vars, cores = 1))
+            setnames(DTFILL, "obs", "obs_ini")
+            DTFILL[, `:=`(lonlat, paste0(lon, lat))]
+            DTFILL[, `:=`(lon, NULL)]
+            DTFILL[, `:=`(lat, NULL)]
+            DTFILL[, `:=`(veri_initial_date, as.character(iniDates[i]))]
+            XX = .rbind.data.table(XX, DTFILL)
+            rm(DTFILL)
+        }
+        keep = which(!duplicated(XX[, -c("obs_ini"), with = F]))
+        XX = XX[keep]
+	if ("level"%in%vars){
+	        DT = merge(DT, XX, by = c("veri_initial_date", "varno", "level","lonlat"), all.x = T)
+	}else{
+		DT = merge(DT, XX, by = c("veri_initial_date", "varno", "lonlat"), all.x = T)
 	}
-	else {
-	DT[, `:=`(obs_ini, NA)]
-	}
-	return(DT)
+    }
+    else {
+        DT[, `:=`(obs_ini, NA)]
+    }
+    return(DT)
 }
+
 
 
 
