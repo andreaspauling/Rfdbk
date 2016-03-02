@@ -1980,9 +1980,44 @@ fdbk_dt_add_obs_ini<-function (DT, fnamepast, cond = cond)
     return(DT)
 }
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
-
-
+#' Non-overlapping regions, specifically defined for the DWD SYNOP verification
+#'
+#' @param lon longitude vector
+#' @param lat latitude vector
+#'
+#' @return a vector of same lenght as lon or lat with character strings of the region for each point, NA for no match
+#'
+#' @author Felix <felix.fundel@@dwd.de>
+#' @examples
+#' DT = data.table(lon=c(15,85),lat=c(-30,40))
+#' DT[,region:=lonlat_to_synopregion(lon,lat)]
+#' DT
+lonlat_to_synopregion <- function(lon,lat){
+	output = rep(NA, length(lon))
+	#output[lon%between%c(-2.999999,20) & lat%between%c(46.000001,57)] 	= "Central Europe"
+	output[lon%between%c(60.000001,90) & lat%between%c(50.000001,60)] 	= "S-W Siberia"
+	output[lon%between%c(60.000001,90) & lat%between%c(60.000001,70)] 	= "N-W Siberia"
+	output[lon%between%c(90.000001,130) & lat%between%c(50.000001,70)] 	= "E Siberia"
+	output[lon%between%c(-9.999999,40) & lat%between%c(0.000001,30)] 	= "N Africa"
+	output[lon%between%c(10.000001,40) & lat%between%c(-34.999999,0)] 	= "S Africa"
+  	output[lon%between%c(-119.999999,-100) & lat%between%c(30.000001,50)]	= "W Northamerica"
+	output[lon%between%c(-99.999999,-70) & lat%between%c(30.000001,50)] 	= "E Northamerica"
+	output[lon%between%c(-119.999999,-70) & lat%between%c(50.000001,70)] 	= "N Norhtamerica"
+	output[lon%between%c(-79.999999,-40) & lat%between%c(-29.999999,0)] 	= "N Southamerica"
+	output[lon%between%c(-79.999999,-40) & lat%between%c(-49.999999,-30)] 	= "S Southamerica"
+	output[lon%between%c(80.000001,130) & lat%between%c(20.000001,50)] 	= "China"
+	output[lon%between%c(102.5000001,175) & lat%between%c(-44.999999,17.5)]	= "AUS,NZ,INDON"
+	output[lon%between%c(-180,180) & lat%between%c(-90,-60)] 		= "Antarctic"
+	output[lon%between%c(55.000001,80) & lat%between%c(35.000001,50)] 	= "Kazakhstan"
+	output[lon%between%c(-180,180) & lat%between%c(70.000001,90)] 		= "Arctic"
+	return(output)
+}
 
 
 
