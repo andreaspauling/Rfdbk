@@ -23,6 +23,8 @@ varno_to_name(c(3,4),short=T,rev=F)
 varno_to_name(c(3,4),short=F,rev=F)
 varno_to_name(c("RH","TS"),short=T,rev=T)
 varno_to_name(c("RH","TS"),short=F,rev=T)
+varno_to_name("geopotential (m^2/s^2)",short=F,rev=T)
+varno_to_name(varno_to_name("geopotential (m^2/s^2)",short=F,rev=T))
 }
 \author{
 Felix <felix.fundel@dwd.de>

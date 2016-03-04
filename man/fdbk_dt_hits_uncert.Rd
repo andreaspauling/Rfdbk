@@ -8,7 +8,7 @@ fdbk_dt_hits_uncert(DT, thrs, by, cores = 1, incores = 1)
 \arguments{
 \item{DT}{data.table with relevant information (at least varno, obs and veri_data)}
 
-\item{thrs}{list of variable having each a list of lower/upper thresholds (set upper to Inf if only one threshold is required)}
+\item{thrs}{list of variable having each a list of lower/upper limit, relative to observation}
 
 \item{by}{stratify contingency entries by these DT columns}
 
