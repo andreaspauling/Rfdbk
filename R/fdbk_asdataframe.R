@@ -960,7 +960,7 @@ fdbk_dt_hits_uncert <- function(DT,thrs,by,cores=1,incores=1){
   inner <- function(var,thrs,incores){
     inner2 <- function(tind,v,t){
       interv = c(t$lower[tind],t$upper[tind])
-      return(DT[DT$varno==v,list(hit      = sum((obs-veri_data)%between%(obs+interv)), 
+      return(DT[DT$varno==v,list(hit      = sum((veri_data-obs)%between%interv), 
                                  total    = .N,
                                  interval = paste(round(interv[!is.infinite(interv)],3),collapse="-")),by=by])
     }
