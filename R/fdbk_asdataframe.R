@@ -930,7 +930,7 @@ fdbk_dt_contscores <- function(CONTTABLE,by){
 #' Calculates stratified hit rates for uncertain obs/fcst
 #' 
 #' @param DT data.table with relevant information (at least varno, obs and veri_data)
-#' @param thrs list of variable having each a list of lower/upper thresholds (set upper to Inf if only one threshold is required)
+#' @param thrs list of variable having each a list of lower/upper limit, relative to observation
 #' @param by stratify contingency entries by these DT columns
 #' @param cores computing cores for the outer loop (splits computation by varnos)
 #' @param incores computing cores for the outer loop (splits computation by thresholds)(available cores have to be of number cores x incores)
@@ -960,7 +960,7 @@ fdbk_dt_hits_uncert <- function(DT,thrs,by,cores=1,incores=1){
   inner <- function(var,thrs,incores){
     inner2 <- function(tind,v,t){
       interv = c(t$lower[tind],t$upper[tind])
-      return(DT[DT$varno==v,list(hit      = sum((obs-veri_data)%between%interv), 
+      return(DT[DT$varno==v,list(hit      = sum((obs-veri_data)%between%(obs+interv)), 
                                  total    = .N,
                                  interval = paste(round(interv[!is.infinite(interv)],3),collapse="-")),by=by])
     }
