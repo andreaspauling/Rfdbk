@@ -1645,14 +1645,16 @@ rowSds <- function(a,na.rm=F){
 #' varno_to_name(c(3,4),short=F,rev=F)
 #' varno_to_name(c("RH","TS"),short=T,rev=T)
 #' varno_to_name(c("RH","TS"),short=F,rev=T)
+#' varno_to_name("geopotential (m^2/s^2)",short=F,rev=T)
+#' varno_to_name(varno_to_name("geopotential (m^2/s^2)",short=F,rev=T))
 varno_to_name <- function(varno,short=T,rev=F){
-  data(VN)
-  VN$longName = gsub("^\\s+|\\s+$", "",gsub('([[:space:]])|\\s+',' ',VN$longName))
-  VN$shortName = gsub("^\\s+|\\s+$", "",VN$shortName)
-  if (!short & rev)  {short = T; warning("short set to TRUE")} 
-  if (short  & !rev) return(str_trim(VN$shortName[match(varno,VN$varno)]))
-  if (!short & !rev) return(str_trim(VN$longName[match(varno,VN$varno)]))
-  if (rev)           return(VN$varno[match(varno,str_trim(VN$shortName))])
+    data(VN)
+    VN$longName = gsub("^\\s+|\\s+$", "", gsub("([[:space:]])|\\s+"," ", VN$longName))
+    VN$shortName = gsub("^\\s+|\\s+$", "", VN$shortName)
+    if (short & !rev)  return(str_trim(VN$shortName[match(varno, VN$varno)]))
+    if (!short & !rev) return(str_trim(VN$longName[match(varno, VN$varno)]))
+    if (short & rev)   return(VN$varno[match(varno, str_trim(VN$shortName))])
+    if (!short & rev)  return(VN$varno[match(varno, str_trim(VN$longName))])
 }
 
 ########################################################################################################################
