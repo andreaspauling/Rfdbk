@@ -2010,7 +2010,7 @@ lonlat_to_synopregion <- function(lon,lat){
 	output[lon%between%c(10.000001,40) & lat%between%c(-34.999999,0)] 	= "S Africa"
   	output[lon%between%c(-119.999999,-100) & lat%between%c(30.000001,50)]	= "W Northamerica"
 	output[lon%between%c(-99.999999,-70) & lat%between%c(30.000001,50)] 	= "E Northamerica"
-	output[lon%between%c(-119.999999,-70) & lat%between%c(50.000001,70)] 	= "N Norhtamerica"
+	output[lon%between%c(-119.999999,-70) & lat%between%c(50.000001,70)] 	= "N Northamerica"
 	output[lon%between%c(-79.999999,-40) & lat%between%c(-29.999999,0)] 	= "N Southamerica"
 	output[lon%between%c(-79.999999,-40) & lat%between%c(-49.999999,-30)] 	= "S Southamerica"
 	output[lon%between%c(80.000001,130) & lat%between%c(20.000001,50)] 	= "China"
