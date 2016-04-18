@@ -3,12 +3,14 @@
 \alias{fdbk_dt_contscores}
 \title{Calculates most common contingeny scores}
 \usage{
-fdbk_dt_contscores(CONTTABLE, by)
+fdbk_dt_contscores(CONTTABLE, by, meltTable = T)
 }
 \arguments{
 \item{CONTTABLE}{data.table with colums hit,miss,corrneg,false and additional columns (output of fdbk_dt_conttable(_2thrs))}
 
 \item{by}{stratify contingency entries by these columns}
+
+\item{meltTable}{if TRUE (default) melt output so that there is one 'scores' column and one 'scorename' column}
 }
 \value{
 data.table with one column of score names and one column of scores values

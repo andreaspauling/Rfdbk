@@ -28,7 +28,7 @@ fnames                = system("ls ~/examplesRfdbk/*/synop/verSYNOP.2014*",inter
 cond                  = list(varno="varno\%in\%c(3,4)",veri_description="grepl('forecast',veri_description)")
 columnnames           = c("obs","veri_data","varno","veri_model","veri_forecast_time","veri_initial_date","statid")
 DT                    = fdbk_dt_multi_large(fnames,cond,columnnames,20)
-keepind               = comparableRows(DT,splitCol="veri_model",splitVal=unique(DT$veri_model),compareBy=c("veri_forecast_time","veri_initial_date","varno","statid"))
+keepind               = comparableRows(DT,splitCol="veri_model",splitVal=unique(DT$veri_model),compareBy=c("obs","veri_forecast_time","veri_initial_date","varno","statid"))
 DT                    = DT[keepind]
 DT[,.N,by=c("varno","veri_model")]
 DT$varno              = varno_to_name(DT$varno)
