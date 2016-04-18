@@ -882,6 +882,7 @@ fdbk_dt_conttable_2thrs <- function(DT,thrs,by,cores=1,incores=1){
 #' 
 #' @param CONTTABLE data.table with colums hit,miss,corrneg,false and additional columns (output of fdbk_dt_conttable(_2thrs))
 #' @param by stratify contingency entries by these columns
+#' @param meltTable if TRUE (default) melt output so that there is one 'scores' column and one 'scorename' column
 #' @return data.table with one column of score names and one column of scores values
 #'
 #' @author Felix <felix.fundel@@dwd.de>
@@ -901,8 +902,8 @@ fdbk_dt_conttable_2thrs <- function(DT,thrs,by,cores=1,incores=1){
 #' geom_point()+
 #' facet_grid(scorename~varno,scale="free_y")+
 #' theme_bw()
-fdbk_dt_contscores <- function(CONTTABLE,by){
-  return(melt(CONTTABLE[,list(POD = (hit)/(hit+miss),
+fdbk_dt_contscores <- function(CONTTABLE,by,meltTable=T){
+  OUT = CONTTABLE[,list(POD = (hit)/(hit+miss),
                               TSS  =  hit/(hit + miss)-false/(false+corrneg),
                               FAR  =  false/(hit + false),
                               FBI  = (hit+false)/(hit + miss),
@@ -918,7 +919,11 @@ fdbk_dt_contscores <- function(CONTTABLE,by){
                               NMISS = miss,
                               NFALSE = false,
                               NCORRNEG = corrneg,
-                              LEN  = hit+miss+corrneg+false),by],id=1:length(by), measure=(length(by)+1):(17+length(by)),variable.name = "scorename", value.name = "scores"))
+                              LEN  = hit+miss+corrneg+false),by]
+  if(meltTable){
+	OUT = melt(OUT,id=1:length(by), measure=(length(by)+1):(17+length(by)),variable.name = "scorename", value.name = "scores")
+  }
+  return(OUT)
 }
 
 ########################################################################################################################
