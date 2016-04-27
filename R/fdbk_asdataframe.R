@@ -383,33 +383,52 @@ read_fdbk_large <- function(fname,condition="",vars=""){
 #' format(object.size(DT),"Mb")
 #' DT
 fdbk_dt <- function(fdbk){
-  if (is.null(fdbk)){return(NULL)}
-  data_len     = fdbk$DIMENSIONS$d_body$length
-  veri_steps   = fdbk$DIMENSIONS$d_veri$length
-  stat_len     = fdbk$DIMENSIONS$d_hdr$length
-  var_lengths  = lapply(lapply(fdbk$DATA,"[[","values"),length)
-  
-  data_names        = names(var_lengths)
-  obs_id            = as.vector(which(unlist(lapply(var_lengths,"==", data_len))))
-  obs_names         = data_names[obs_id]
-  veri_id           = as.vector(which(unlist(lapply(var_lengths,"==", veri_steps))))
-  veri_names        = data_names[veri_id]
-  stat_id           = as.vector(which(unlist(lapply(var_lengths,"==", stat_len))))
-  stat_names        = data_names[stat_id]
-  
-  dlist        = list()
-  for (n in obs_names){dlist[[n]]   = rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_body],veri_steps)}
-  for (n in veri_names){dlist[[n]]  = rep(fdbk$DATA[[n]]$values,each = fdbk$GLOBALS$n_body)}
-  for (n in stat_names){ dlist[[n]] = rep(rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_hdr],fdbk$DATA$l_body$values[1:fdbk$GLOBALS$n_hdr]),veri_steps) }
-  #dlist[["verification_ref_time"]]  = rep(fdbk$GLOBALS$verification_ref_time,fdbk$GLOBALS$n_body)
-  if (veri_steps>1 & fdbk$GLOBALS$n_body>1){ 
-    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body,])
-  }else if (veri_steps==1 & fdbk$GLOBALS$n_body>1){
-    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body])
-  }else if (veri_steps>0 & fdbk$GLOBALS$n_body==1){
-    dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values)
-  }
-  return(as.data.table(dlist))
+	if (is.null(fdbk)) {
+		return(NULL)
+	}
+	data_len     = fdbk$DIMENSIONS$d_body$length
+	veri_steps   = fdbk$DIMENSIONS$d_veri$length
+	stat_len     = fdbk$DIMENSIONS$d_hdr$length
+	radar_len = fdbk$DIMENSIONS$d_radar$length
+	var_lengths  = lapply(lapply(fdbk$DATA, "[[", "values"), length)
+	data_names   = names(var_lengths)
+	obs_id       = as.vector(which(unlist(lapply(var_lengths, "==",data_len))))
+	obs_names    = data_names[obs_id]
+	veri_id      = as.vector(which(unlist(lapply(var_lengths, "==",veri_steps))))
+	veri_names   = data_names[veri_id]
+	stat_id      = as.vector(which(unlist(lapply(var_lengths, "==",stat_len))))
+	stat_names   = data_names[stat_id]
+	radar_id     = as.vector(which(unlist(lapply(var_lengths, "==",radar_len))))
+	radar_names   = data_names[radar_id]
+
+	dlist        = list()
+	for (n in obs_names) {
+		dlist[[n]] = rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_body],veri_steps)
+	}
+	for (n in veri_names) {
+		dlist[[n]] = rep(fdbk$DATA[[n]]$values, each = fdbk$GLOBALS$n_body)
+	}
+	for (n in stat_names) {
+		dlist[[n]] = rep(rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_hdr],fdbk$DATA$l_body$values[1:fdbk$GLOBALS$n_hdr]), veri_steps)
+	}
+	for (n in radar_names) {
+		dlist[[n]] = c()
+		for (i in 1:fdbk$GLOBALS$n_hdr){
+			radfrom    = last(which(cumsum(fdbk$DATA$radar_nbody$values)==fdbk$DATA$i_body$values[i]-1))
+			radto      = which(cumsum(fdbk$DATA$radar_nbody$values)==cumsum(fdbk$DATA$l_body$values)[i])[1]
+			dlist[[n]] = c(dlist[[n]],rep(fdbk$DATA[[n]]$values[radfrom:radto],fdbk$DATA$radar_nbody$values[radfrom:radto]))
+		}
+		dlist[[n]] = rep(dlist[[n]],veri_steps)
+	}
+	if (veri_steps > 1 & fdbk$GLOBALS$n_body > 1) {
+		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body,])
+	}else if (veri_steps == 1 & fdbk$GLOBALS$n_body > 1) {
+		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values[1:fdbk$GLOBALS$n_body])
+	}else if (veri_steps > 0 & fdbk$GLOBALS$n_body == 1) {
+		dlist[["veri_data"]] = as.vector(fdbk$DATA[["veri_data"]]$values)
+	}
+	setDT(dlist)
+	return(dlist)
 }
 
 ########################################################################################################################
