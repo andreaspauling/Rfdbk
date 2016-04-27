@@ -178,7 +178,9 @@ hhmm2hour = function(x){
 #' ggplot(scores,aes(x=level,y=scores,color=statid,group=statid))+geom_line()+geom_point()+facet_wrap(~scorename,scale="free")
 fdbk_dt_multi_large <- function(fnames,condition="",vars="",cores=1){
   loadt <- function(fname,condition,vars){
-    DT  = fdbk_dt(read_fdbk_large(fname,condition,vars=unique(c(vars,"i_body","l_body",names(condition)))))
+    varsinner = unique(c(vars,"i_body","l_body",names(condition)))
+    if (any(grepl("radar_",vars))) varsinner = unique(c(varsinner,"radar_nbody"))
+    DT  = fdbk_dt(read_fdbk_large(fname,condition,vars=varsinner))
     if (all(vars!="")) DT  = DT[,vars,with=F]
     print(paste("completed reading",fname))
     return(DT)
@@ -215,7 +217,7 @@ fdbk_dt_multi_large <- function(fnames,condition="",vars="",cores=1){
 #' x11(width=12,height=7.5)
 #' scatterplot(fdbk$DATA$lon$values,fdbk$DATA$lat$values,fdbk$DATA$obs$values,pch=20,cex=.5,cpal=tim.colors(),ncol=30);world(add=T)
 read_fdbk_large <- function(fname,condition="",vars=""){
-  
+
   # read feedback file as list (entire file without redundancy)
   if (any(vars=="")){
     fdbk = read_fdbk_f(fname,vars="")
