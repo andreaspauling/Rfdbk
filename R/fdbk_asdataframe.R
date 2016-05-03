@@ -391,7 +391,7 @@ fdbk_dt <- function(fdbk){
 	data_len     = fdbk$DIMENSIONS$d_body$length
 	veri_steps   = fdbk$DIMENSIONS$d_veri$length
 	stat_len     = fdbk$DIMENSIONS$d_hdr$length
-	radar_len = fdbk$DIMENSIONS$d_radar$length
+	radar_len    = fdbk$DIMENSIONS$d_radar$length
 	var_lengths  = lapply(lapply(fdbk$DATA, "[[", "values"), length)
 	data_names   = names(var_lengths)
 	obs_id       = as.vector(which(unlist(lapply(var_lengths, "==",data_len))))
@@ -401,7 +401,7 @@ fdbk_dt <- function(fdbk){
 	stat_id      = as.vector(which(unlist(lapply(var_lengths, "==",stat_len))))
 	stat_names   = data_names[stat_id]
 	radar_id     = as.vector(which(unlist(lapply(var_lengths, "==",radar_len))))
-	radar_names   = data_names[radar_id]
+	radar_names   = data_names[radar_id][grepl("radar_",data_names[radar_id])]
 
 	dlist        = list()
 	for (n in obs_names) {
