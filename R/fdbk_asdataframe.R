@@ -1101,25 +1101,15 @@ fdbk_dt_crps <- function(DT,by){
 #'   geom_path()+geom_point()+facet_wrap(~scorename~varno,scale="free_x",ncol=4)+
 #'   scale_y_reverse()+theme_bw()+scale_colour_discrete("lead-time")
 fdbk_dt_crps_norm <- function(DT,by){
-  DT[,c("CRPS","IGN"):=crps(obs=obs[veri_description=="mean"],pred=cbind(veri_data[veri_description=="mean"],veri_data[veri_description=="spread"]))[c(2,4)],by=by]
-  eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
-  scores = DT[,c(by,"CRPS","IGN"),with=F]
-  scores = scores[!duplicated(scores)]
-  scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
-  DT[,c("CRPS","IGN"):=NULL,]
-  return(scores)
-}
-fdbk_dt_crps_norm_naomit <- function(DT,by){
   DT[,c("CRPS","IGN"):=lapply(crps(obs=obs[veri_description=="mean"],pred=cbind(veri_data[veri_description=="mean"],veri_data[veri_description=="spread"]))[c(1,3)],mean,na.rm=T),by=by]
   eval(parse(text=paste("setkey(DT,",paste(by,collapse=","),")")))
-  setnames(DT,"crps","CRPS")
-  setnames(DT,"ign","IGN")
   scores = DT[,c(by,"CRPS","IGN"),with=F]
   scores = scores[!duplicated(scores)]
   scores = melt(scores,1:length(by),(length(by)+1):dim(scores)[2],"scorename","score")
   DT[,c("CRPS","IGN"):=NULL,]
   return(scores)
 }
+
 ########################################################################################################################
 ########################################################################################################################
 ########################################################################################################################
