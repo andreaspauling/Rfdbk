@@ -1073,7 +1073,9 @@ fdbk_dt_crps <- function(DT,by){
 ########################################################################################################################
 ########################################################################################################################
 #' Calculate CRPS and Ignorance score from data.table with EPS mean/spread, assuming a normally distributed EPS
-#' 
+#' In case of zero standard deviation CRPS and Ignorance would return NA, those cases are omitted in this function so that
+#' a score should always be returned, except all ensemble predictions have zero standard deviation.
+#'
 #' @param DT data.table (columns 'veri_description','obs' and 'veri_data' are required!!!) values of veri_description have to be "mean" or "spread"
 #' @param by stratify crps by (e.g. 'varno')
 #' @return data.table with columns as defined in 'by' plus scorename plus score
