@@ -340,9 +340,11 @@ read_fdbk_large <- function(fname,condition="",vars=""){
       }
     }
     # filter report where new_l_body==0
-    filt_hdr = !unique(indices)%in%unique(indices[filt])
+    #filt_hdr = !unique(indices)%in%unique(indices[filt])
+    filt_hdr = which(unique(indices)%in%unique(indices[filt]))
     for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_hdr)))){
-      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[!filt_hdr]
+      #fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[!filt_hdr]
+      fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt_hdr]
     }
     # delet rows new_l_body==0
     fdbk$DATA$l_body$values = as.integer(table(indices[filt]))
