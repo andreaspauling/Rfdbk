@@ -268,13 +268,7 @@ read_fdbk_large <- function(fname,condition="",vars=""){
       warning(paste(filt_cond,"has no match, returning NULL"))
       return(NULL)
     }
-    #for (i in which(unlist(lapply(lapply(dimensions,"[",1),"==",d_veri)))){
-    #  fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
-    #}
-    #for (i in which(unlist(lapply(lapply(dimensions,"[",2),"==",d_veri)))){
-    #  fdbk$DATA[[i]]$values =  matrix(fdbk$DATA[[i]]$values[,filt],ncol=sum(filt)) # filter 2d values
-    #}
-    for (i in names(dimensions)[names(dimensions)%in%names_veri]){
+     for (i in names(dimensions)[names(dimensions)%in%names_veri]){
       if(length(dim(fdbk$DATA[[i]]$values))==1){
         fdbk$DATA[[i]]$values =  fdbk$DATA[[i]]$values[filt] # filter 1d values
       }else{
@@ -401,7 +395,13 @@ fdbk_dt <- function(fdbk){
 	stat_id      = as.vector(which(unlist(lapply(var_lengths, "==",stat_len))))
 	stat_names   = data_names[stat_id]
 	radar_id     = as.vector(which(unlist(lapply(var_lengths, "==",radar_len))))
-	radar_names   = data_names[radar_id][grepl("radar_",data_names[radar_id])]
+	radar_names  = data_names[radar_id][grepl("radar_",data_names[radar_id])]
+
+	if (veri_steps==data_len){
+		obs_names  = obs_names[!grepl("veri_",obs_names)]
+		veri_names = veri_names[grepl("veri_",veri_names)]
+	}
+
 
 	dlist        = list()
 	for (n in obs_names) {
