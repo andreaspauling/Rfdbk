@@ -2033,10 +2033,12 @@ fdbk_dt_add_obs_ini<-function (DT, fnamepast, cond = cond)
 #' DT
 lonlat_to_synopregion <- function(lon,lat){
 	output = rep(NA, length(lon))
-	#output[lon%between%c(-2.999999,20) & lat%between%c(46.000001,57)] 	= "Central Europe"
+	output[lon%between%c(5.000001,60) & lat%between%c(55.000001,70)] 	= "N Europe"
+	output[lon%between%c(-10.000001,55) & lat%between%c(30.000001,55)] 	= "Mediterranean"
 	output[lon%between%c(60.000001,90) & lat%between%c(50.000001,60)] 	= "S-W Siberia"
 	output[lon%between%c(60.000001,90) & lat%between%c(60.000001,70)] 	= "N-W Siberia"
 	output[lon%between%c(90.000001,130) & lat%between%c(50.000001,70)] 	= "E Siberia"
+	
 	output[lon%between%c(-9.999999,40) & lat%between%c(0.000001,30)] 	= "N Africa"
 	output[lon%between%c(10.000001,40) & lat%between%c(-34.999999,0)] 	= "S Africa"
   	output[lon%between%c(-119.999999,-100) & lat%between%c(30.000001,50)]	= "W Northamerica"
