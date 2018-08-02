@@ -10,3 +10,4 @@ Description: Collection of functions to handle NetCDF feedback files from DWD
 License: GPL
 Depends:
     RNetCDF,data.table,parallel,stringr,survival,grid,verification,reshape2,pcaPP
+RoxygenNote: 6.0.1

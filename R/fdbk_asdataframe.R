@@ -2093,7 +2093,34 @@ fdbk_dt_conditional <-function(DT,condition,on,by){
 }
 
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
+#' Function evaluating the flags bit
+#'
+#' Some feedback file attributes are integers that have to be transformed to a bit string in order to encode the feedback file report (e,g, flags or level_sig).
+#' This function takes the integers as input and a vector of bits and returns TRUE/FALSE if bit is part of the bit-converted integer
+#' The first bit is 0 (not 1), in agreement with the construction of feedback files.
+#' 
+#'
+#' @param int   a integer or a vector of integers that is converted to bits
+#' @param bits  a bit or a vector of bits that might be contained in each int
+#' 
+#' @return logical if bit is in the converted integer
+#'
+#' @author Felix <felix.fundel@@dwd.de>
+#'
+#'
+#' @examples
+#' bitcheck(1:100,0)
+#' DT = data.table(flags=1:10)
+#' DT[bitcheck(flags,0)]
+bitcheck <- function(int,bits){
+	sapply(lapply(lapply(lapply(lapply(int,intToBits),"==",1),which),"%in%",bits+1),any)
+}
 
 
 
