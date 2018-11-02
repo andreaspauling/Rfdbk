@@ -401,6 +401,10 @@ fdbk_dt <- function(fdbk){
 		obs_names  = obs_names[!grepl("veri_",obs_names)]
 		veri_names = veri_names[grepl("veri_",veri_names)]
 	}
+	if (veri_steps==stat_len){
+		stat_names  = stat_names[!grepl("veri_",stat_names)]
+		veri_names = veri_names[grepl("veri_",veri_names)]
+	}
 
 
 	dlist        = list()
