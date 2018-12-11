@@ -921,34 +921,40 @@ fdbk_dt_conttable_2thrs <- function(DT,thrs,by,cores=1,incores=1){
 #' thrs                  = list('29'=list('lower'=c(.8,.6),'upper'=c(Inf,.9)),
 #'                               '3'=list('lower'=c(-5,0,5),'upper'=c(Inf,Inf,Inf)))
 #' CONTTABLE             = fdbk_dt_conttable_2thrs(DT,thrs,by=c("veri_model","veri_forecast_time","varno"),cores=2,incores=3)
-#' SCORES                = fdbk_dt_contscores(CONTTABLE,by=c("veri_model","veri_forecast_time","varno","thr"))
+#' SCORES                = fdbk_dt_contscores(CONTTABLE)
 #' ggplot(SCORES,aes(x=veri_forecast_time,y=scores,color=thr,linetype=veri_model))+
 #' geom_line()+
 #' geom_point()+
 #' facet_grid(scorename~varno,scale="free_y")+
 #' theme_bw()
-fdbk_dt_contscores <- function(CONTTABLE,by,meltTable=T){
-  OUT = CONTTABLE[,list(POD = (hit)/(hit+miss),
-                              TSS  =  hit/(hit + miss)-false/(false+corrneg),
-                              FAR  =  false/(hit + false),
-                              FBI  = (hit+false)/(hit + miss),
-                              OR   = (hit*corrneg)/(miss*false),
-                              POFD = false/(corrneg+false),
-                              SR   = hit/(hit+false), 
-                              CSI  = hit/(hit+miss+false),
-                              ACC  = (hit+corrneg)/(hit+miss+corrneg+false),
-                              ORSS = (hit*corrneg - miss*false) / (hit*corrneg + miss*false),
-                              ETS  = (hit-(hit+miss)*(hit+false)/(hit+miss+false+corrneg))/(hit+miss+false-(hit+miss)*(hit+false)/(hit+miss+false+corrneg)),
-                              HSS  = ((hit+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg))  /  ((hit+miss+false+corrneg)-((hit+miss)*(hit+false)+(corrneg+miss)*(corrneg+false))/(hit+miss+false+corrneg)),
-                              NHIT = hit,
-                              NMISS = miss,
-                              NFALSE = false,
-                              NCORRNEG = corrneg,
-                              LEN  = hit+miss+corrneg+false),by]
-  if(meltTable){
-	OUT = melt(OUT,id=1:length(by), measure=(length(by)+1):(17+length(by)),variable.name = "scorename", value.name = "scores")
-  }
-  return(OUT)
+fdbk_dt_contscores <- function (CONTTABLE, meltTable = T) {
+
+	ncol=length(names(CONTTABLE)[!names(CONTTABLE)%in%c("hit","miss","false","corrneg")])
+
+	CONTTABLE[,POD      := (hit)/(hit + miss)]
+	CONTTABLE[,TSS      := POD - false/(false + corrneg)]
+	CONTTABLE[,FAR      := false/(hit + false)]
+	CONTTABLE[,FBI      := (hit + false)/(hit + miss)]
+	CONTTABLE[,OR       := (hit * corrneg)/(miss * false)]
+	CONTTABLE[,POFD     := false/(corrneg + false)]
+	CONTTABLE[,SR       := hit/(hit + false)]
+	CONTTABLE[,CSI      := hit/(hit + miss + false)]
+	CONTTABLE[,ACC      := (hit + corrneg)/(hit + miss + corrneg + false)]
+	CONTTABLE[,ORSS     := (hit * corrneg - miss * false)/(hit * corrneg + miss * false)]
+	CONTTABLE[,ETS      := (hit - (hit + miss) * (hit + false)/(hit + miss + false + corrneg))/(hit + miss + false - (hit + miss) * (hit + false)/(hit + miss + false + corrneg))]
+	CONTTABLE[,HSS      := ((hit + corrneg) - ((hit + miss) * (hit + false) + (corrneg + miss) * (corrneg + false))/(hit + miss + false + corrneg))/((hit + miss + false + corrneg) - ((hit + miss) * (hit + false) + (corrneg + miss) * (corrneg + false))/(hit + miss + false + corrneg))]
+	CONTTABLE[,NHIT     := hit]
+	CONTTABLE[,NMISS    := miss]
+	CONTTABLE[,NFALSE   := false]
+	CONTTABLE[,NCORRNEG := corrneg]
+	CONTTABLE[,LEN      := hit + miss + corrneg + false]
+	CONTTABLE[,c("hit","miss","false","corrneg"):=NULL]
+	
+	if (meltTable) {
+        	CONTTABLE = melt(CONTTABLE, id = 1:ncol, measure = (ncol + 1):(17 + ncol), variable.name = "scorename",  value.name = "scores")
+	}
+
+	return(CONTTABLE)
 }
 
 ########################################################################################################################
