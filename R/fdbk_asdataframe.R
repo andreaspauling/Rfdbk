@@ -2133,7 +2133,86 @@ bitcheck <- function(int,bits){
 }
 
 
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+########################################################################################################################
 
+#' Function returning ensemble feedback file content as data.table with member forecasts as individual columns
+#'
+#' Having the forecasts from each member as column (wide table) instead of a single veri_data column (long table) has
+#' a great benefit for large ensembles and many observations. Wide tables carry less redundant data, use less memory
+#' and faster computation is possible
+#' 
+#'
+#' @param fdbk  return from read_fdbk or read_fdbk_larg
+#' 
+#' @return a data.table
+#'
+#' @author Felix <felix.fundel@@dwd.de>
+#'
+#'
+#' @examples
+#' fdbk_dt_wide(read_fdbk_large(filename,cond,vars))
+
+fdbk_dt_wide <- function (fdbk){
+    if (is.null(fdbk)) {
+        return(NULL)
+    }
+    data_len = fdbk$DIMENSIONS$d_body$length
+    veri_steps = fdbk$DIMENSIONS$d_veri$length
+    stat_len = fdbk$DIMENSIONS$d_hdr$length
+    radar_len = fdbk$DIMENSIONS$d_radar$length
+    var_lengths = lapply(lapply(fdbk$DATA, "[[", "values"), length)
+    data_names = names(var_lengths)
+    obs_id = as.vector(which(unlist(lapply(var_lengths, "==", data_len))))
+    obs_names = data_names[obs_id]
+    veri_id = as.vector(which(unlist(lapply(var_lengths, "==",veri_steps))))
+    veri_names = data_names[veri_id]
+    stat_id = as.vector(which(unlist(lapply(var_lengths, "==",stat_len))))
+    stat_names = data_names[stat_id]
+    radar_id = as.vector(which(unlist(lapply(var_lengths, "==",radar_len))))
+    radar_names = data_names[radar_id][grepl("radar_", data_names[radar_id])]
+    if (veri_steps == data_len) {
+        obs_names = obs_names[!grepl("veri_", obs_names)]
+        veri_names = veri_names[grepl("veri_", veri_names)]
+    }
+    if (veri_steps == stat_len) {
+        stat_names = stat_names[!grepl("veri_", stat_names)]
+        veri_names = veri_names[grepl("veri_", veri_names)]
+    }
+    dlist = list()
+
+    combs  = data.table(veri_ens_member    = fdbk$DATA$veri_ens_member$values,
+                        veri_forecast_time = fdbk$DATA$veri_forecast_time$values,
+                        veri_run_type      = fdbk$DATA$veri_run_type$values,
+                        veri_initial_date  = fdbk$DATA$veri_initial_date$values)
+    repobs = dim(unique(combs[,c("veri_forecast_time","veri_run_type")]))[1]
+
+    for (n in obs_names) {
+        dlist[[n]] = rep(as.vector(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_body]),repobs)
+    }
+    for (n in stat_names) {
+        dlist[[n]] = rep(rep(fdbk$DATA[[n]]$values[1:fdbk$GLOBALS$n_hdr],fdbk$DATA$l_body$values[1:fdbk$GLOBALS$n_hdr]),repobs)
+    }
+    dlist[["veri_run_type"]]      = rep(unique(combs[,c("veri_forecast_time","veri_run_type")])$veri_run_type,each=fdbk$GLOBALS$n_body) 
+    dlist[["veri_forecast_time"]] = rep(unique(combs[,c("veri_forecast_time","veri_run_type")])$veri_forecast_time,each=fdbk$GLOBALS$n_body)
+    dlist[["veri_initial_date"]]  = rep(unique(combs[,c("veri_forecast_time","veri_run_type","veri_initial_date")])$veri_initial_date,each=fdbk$GLOBALS$n_body)
+
+    dummy                         = rep(NA,length(dlist[["veri_run_type"]]))
+    for (i in 1:dim(combs)[1]) {
+        dlist[[paste0(combs[i]$veri_ens_member)]]         = dummy
+    }
+    rm(dummy)
+    for (i in 1:dim(combs)[1]) {
+        #print(i)
+        dlist[[paste0(combs[i]$veri_ens_member)]][dlist[["veri_forecast_time"]]==combs[i]$veri_forecast_time & dlist[["veri_run_type"]]==combs[i]$veri_run_type] =  fdbk$DATA$veri_data$values[1:fdbk$GLOBALS$n_body,i]
+    }
+
+    setDT(dlist)
+    return(dlist)
+}
 
 
 

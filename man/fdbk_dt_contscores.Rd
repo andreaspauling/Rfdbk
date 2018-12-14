@@ -4,14 +4,14 @@
 \alias{fdbk_dt_contscores}
 \title{Calculates most common contingeny scores}
 \usage{
-fdbk_dt_contscores(CONTTABLE, by, meltTable = T)
+fdbk_dt_contscores(CONTTABLE, meltTable = T)
 }
 \arguments{
 \item{CONTTABLE}{data.table with colums hit,miss,corrneg,false and additional columns (output of fdbk_dt_conttable(_2thrs))}
 
-\item{by}{stratify contingency entries by these columns}
-
 \item{meltTable}{if TRUE (default) melt output so that there is one 'scores' column and one 'scorename' column}
+
+\item{by}{stratify contingency entries by these columns}
 }
 \value{
 data.table with one column of score names and one column of scores values
@@ -29,7 +29,7 @@ DT                    = fdbk_dt_multi_large(fnames,cond,columnnames,20)
 thrs                  = list('29'=list('lower'=c(.8,.6),'upper'=c(Inf,.9)),
                               '3'=list('lower'=c(-5,0,5),'upper'=c(Inf,Inf,Inf)))
 CONTTABLE             = fdbk_dt_conttable_2thrs(DT,thrs,by=c("veri_model","veri_forecast_time","varno"),cores=2,incores=3)
-SCORES                = fdbk_dt_contscores(CONTTABLE,by=c("veri_model","veri_forecast_time","varno","thr"))
+SCORES                = fdbk_dt_contscores(CONTTABLE)
 ggplot(SCORES,aes(x=veri_forecast_time,y=scores,color=thr,linetype=veri_model))+
 geom_line()+
 geom_point()+
